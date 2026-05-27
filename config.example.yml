@@ -1,0 +1,19 @@
+server:
+  port: ":8082"
+  gin_mode: "debug"
+  enable_cors: true
+  use_default_route: true
+
+database:
+  driver: "mysql"
+  dsn: "root:password@tcp(127.0.0.1:3306)/landc_permission?charset=utf8mb4&parseTime=True&loc=Local"
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+
+log:
+  level: "debug"
+  output: "console"
+  file: "logs/permission.log"
