@@ -8,10 +8,12 @@ database:
   driver: "mysql"
   dsn: "root:password@tcp(127.0.0.1:3306)/landc_permission?charset=utf8mb4&parseTime=True&loc=Local"
 
-redis:
-  addr: "127.0.0.1:6379"
-  password: ""
-  db: 0
+# Redis is optional. If not configured, the system works without caching.
+# Uncomment below to enable Redis caching for better performance.
+# redis:
+#   addr: "127.0.0.1:6379"
+#   password: ""
+#   db: 0
 
 log:
   level: "debug"

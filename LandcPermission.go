@@ -29,7 +29,7 @@ func InitDefault(configPath string) (*gin.Engine, error) {
 	}
 
 	logger.InitLogger(&cfg.Log)
-	_, _ = db.InitRedis(&cfg.Redis)
+	db.InitRedis(&cfg.Redis)
 	db.InitDatabase(&cfg.Database)
 
 	ginEngine.Use(apiMiddleware.GinMiddleware())
@@ -55,7 +55,7 @@ func InitWithConfig(cfg *config.Config) (*gin.Engine, error) {
 	}
 
 	logger.InitLogger(&cfg.Log)
-	_, _ = db.InitRedis(&cfg.Redis)
+	db.InitRedis(&cfg.Redis)
 	db.InitDatabase(&cfg.Database)
 
 	ginEngine.Use(apiMiddleware.GinMiddleware())
@@ -79,7 +79,7 @@ func InitWithConfigAndGin(cfg *config.Config, ginEngine *gin.Engine) error {
 	}
 
 	logger.InitLogger(&cfg.Log)
-	_, _ = db.InitRedis(&cfg.Redis)
+	db.InitRedis(&cfg.Redis)
 	db.InitDatabase(&cfg.Database)
 
 	ginEngine.Use(apiMiddleware.GinMiddleware())
