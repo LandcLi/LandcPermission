@@ -116,26 +116,26 @@ func (s *permissionServiceImpl) RevokeRolesFromUser(userID uint, roleIDs []uint)
 }
 
 func (s *permissionServiceImpl) GetUserRoles(userID uint) ([]model.Role, error) {
-	roleIDs, err := dao.GetUserRoleDAO().GetRoleIDsByUserID(userID)
+	allRoleIDs, err := s.getAllUserRoleIDs(userID)
 	if err != nil {
 		return nil, err
 	}
-	if len(roleIDs) == 0 {
+	if len(allRoleIDs) == 0 {
 		return []model.Role{}, nil
 	}
-	return dao.GetRoleDAO().GetByIDs(roleIDs)
+	return dao.GetRoleDAO().GetByIDs(allRoleIDs)
 }
 
 func (s *permissionServiceImpl) GetUserPermissions(userID uint) ([]model.Permission, error) {
-	roleIDs, err := dao.GetUserRoleDAO().GetRoleIDsByUserID(userID)
+	allRoleIDs, err := s.getAllUserRoleIDs(userID)
 	if err != nil {
 		return nil, err
 	}
-	if len(roleIDs) == 0 {
+	if len(allRoleIDs) == 0 {
 		return []model.Permission{}, nil
 	}
 
-	permIDs, err := dao.GetRolePermissionDAO().GetPermissionIDsByRoleIDs(roleIDs)
+	permIDs, err := dao.GetRolePermissionDAO().GetPermissionIDsByRoleIDs(allRoleIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -170,4 +170,40 @@ func (s *permissionServiceImpl) CheckPermission(userID uint, resource, action st
 	}
 
 	return false, nil
+}
+
+// getAllUserRoleIDs aggregates directly assigned roles + organization-inherited roles.
+func (s *permissionServiceImpl) getAllUserRoleIDs(userID uint) ([]uint, error) {
+	// Get directly assigned roles
+	directRoleIDs, err := dao.GetUserRoleDAO().GetRoleIDsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get organization-inherited roles (if OrgRoleProvider is registered)
+	provider := service.GetOrgRoleProvider()
+	if provider == nil {
+		return directRoleIDs, nil
+	}
+
+	inheritedRoleIDs, err := provider.GetUserInheritedRoleIDs(userID)
+	if err != nil {
+		// If org service is unavailable, fall back to direct roles only
+		return directRoleIDs, nil
+	}
+
+	// Merge and deduplicate
+	roleSet := make(map[uint]struct{})
+	for _, id := range directRoleIDs {
+		roleSet[id] = struct{}{}
+	}
+	for _, id := range inheritedRoleIDs {
+		roleSet[id] = struct{}{}
+	}
+
+	result := make([]uint, 0, len(roleSet))
+	for id := range roleSet {
+		result = append(result, id)
+	}
+	return result, nil
 }
