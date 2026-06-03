@@ -4,7 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/LandcLi/LandcPermission/api/permission/v1"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // PermissionController defines the permission management interface.

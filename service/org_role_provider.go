@@ -1,6 +1,6 @@
 package service
 
-import "github.com/LandcLi/landc-go/mvc/pkg/di"
+import "github.com/LandcLi/landc-go/frame/pkg/di"
 
 // OrgRoleProvider is an optional interface that provides organization-inherited role IDs.
 // When LandcOrg is integrated, it provides roles inherited from departments and positions.

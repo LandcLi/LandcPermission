@@ -2,7 +2,7 @@ package dao
 
 import (
 	"github.com/LandcLi/LandcPermission/model"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // RoleDAO defines the role data access interface.

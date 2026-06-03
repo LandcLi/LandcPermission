@@ -2,7 +2,7 @@ package service
 
 import (
 	"github.com/LandcLi/LandcPermission/model"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // PermissionService defines the permission business logic interface.

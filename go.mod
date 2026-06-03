@@ -4,8 +4,8 @@ go 1.24.0
 
 require (
 	github.com/LandcLi/landc-go/api v0.0.0
+	github.com/LandcLi/landc-go/frame v0.0.0
 	github.com/LandcLi/landc-go/log v0.0.0
-	github.com/LandcLi/landc-go/mvc v0.0.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	gopkg.in/yaml.v2 v2.4.0
@@ -56,7 +56,7 @@ require (
 
 replace (
 	github.com/LandcLi/landc-go/api => ../landc-go/api
+	github.com/LandcLi/landc-go/frame => ../landc-go/frame
 	github.com/LandcLi/landc-go/log => ../landc-go/log
-	github.com/LandcLi/landc-go/mvc => ../landc-go/mvc
 	github.com/LandcLi/landc-go/tools => ../landc-go/tools
 )

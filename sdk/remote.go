@@ -7,7 +7,7 @@ import (
 	permV1 "github.com/LandcLi/LandcPermission/api/permission/v1"
 	"github.com/LandcLi/LandcPermission/api/role"
 	roleV1 "github.com/LandcLi/LandcPermission/api/role/v1"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // RemoteRoleController implements role.RoleController via HTTP calls.

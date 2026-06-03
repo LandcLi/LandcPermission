@@ -6,7 +6,7 @@ import (
 	roleApi "github.com/LandcLi/LandcPermission/api/role"
 	v1 "github.com/LandcLi/LandcPermission/api/role/v1"
 	"github.com/LandcLi/LandcPermission/service"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 func init() {
