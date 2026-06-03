@@ -3,9 +3,9 @@ module github.com/LandcLi/LandcPermission
 go 1.24.0
 
 require (
-	github.com/LandcLi/landc-go/api v0.0.0
-	github.com/LandcLi/landc-go/frame v0.0.0
-	github.com/LandcLi/landc-go/log v0.0.0
+	github.com/LandcLi/landc-go/api v0.1.0
+	github.com/LandcLi/landc-go/frame v0.1.0
+	github.com/LandcLi/landc-go/log v0.1.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	gopkg.in/yaml.v2 v2.4.0
