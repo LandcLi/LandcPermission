@@ -1,0 +1,27 @@
+# 测试配置（无Redis）- 验证弱Redis支持
+server:
+  port: 8082
+  host: "0.0.0.0"
+  read_timeout: 30
+  write_timeout: 30
+
+# 数据库配置
+database:
+  dsn: "root:password@tcp(127.0.0.1:3306)/landc_permission?charset=utf8mb4&parseTime=True&loc=Local"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+
+# 不配置Redis - 系统仍可正常运行
+
+# 日志配置
+log:
+  level: "debug"
+  output: "console"
+  file: "logs/permission.log"
+
+# 其他业务配置
+other:
+  server:
+    gin_mode: "debug"
+    use_default_route: true

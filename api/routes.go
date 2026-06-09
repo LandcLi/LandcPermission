@@ -3,24 +3,24 @@ package api
 import (
 	"github.com/LandcLi/LandcPermission/api/permission"
 	"github.com/LandcLi/LandcPermission/api/role"
+	"github.com/LandcLi/landc-go/frame/pkg/response"
 	"github.com/gin-gonic/gin"
 )
 
 // RegisterDefaultRoutes registers all default routes using Gateway auto-generation.
 func RegisterDefaultRoutes(r *gin.Engine) {
 	// Health check
-	r.GET("/health", HealthCheck)
-
-	// Register role routes via Gateway
-	role.RoleGateway.RegisterRoutes(r)
-
-	// Register permission routes via Gateway
-	permission.PermissionGateway.RegisterRoutes(r)
+	r.GET("/health", func(c *gin.Context) {
+		response.Success(c, gin.H{"status": "ok"})
+	})
 }
 
-// HealthCheck health check endpoint
-func HealthCheck(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status": "ok",
-	})
+// GetRoleController returns the role controller implementation.
+func GetRoleController() role.RoleController {
+	return role.RoleGateway.Get()
+}
+
+// GetPermissionController returns the permission controller implementation.
+func GetPermissionController() permission.PermissionController {
+	return permission.PermissionGateway.Get()
 }

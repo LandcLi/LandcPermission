@@ -1,9 +1,12 @@
 package v1
 
+import "github.com/LandcLi/landc-go/frame/pkg/meta"
+
 // --- Role API ---
 
 // CreateRoleRequest creates a new role.
 type CreateRoleRequest struct {
+	meta.Meta   `path:"/api/role/create" method:"POST"`
 	Name        string `json:"name" binding:"required"`
 	Code        string `json:"code" binding:"required"`
 	Description string `json:"description"`
@@ -18,6 +21,7 @@ type CreateRoleResponse struct {
 
 // UpdateRoleRequest updates an existing role.
 type UpdateRoleRequest struct {
+	meta.Meta   `path:"/api/role/update" method:"POST"`
 	ID          uint   `json:"id" binding:"required"`
 	Name        string `json:"name"`
 	Code        string `json:"code"`
@@ -32,7 +36,8 @@ type UpdateRoleResponse struct {
 
 // DeleteRoleRequest deletes a role by ID.
 type DeleteRoleRequest struct {
-	ID uint `json:"id" binding:"required"`
+	meta.Meta `path:"/api/role/delete" method:"POST"`
+	ID        uint `json:"id" binding:"required"`
 }
 
 // DeleteRoleResponse returns deletion result.
@@ -42,7 +47,8 @@ type DeleteRoleResponse struct {
 
 // GetRoleRequest gets a role by ID.
 type GetRoleRequest struct {
-	ID uint `json:"id" binding:"required"`
+	meta.Meta `path:"/api/role/get" method:"POST"`
+	ID        uint `json:"id" binding:"required"`
 }
 
 // GetRoleResponse returns role details.
@@ -56,9 +62,10 @@ type GetRoleResponse struct {
 
 // ListRolesRequest lists roles with pagination.
 type ListRolesRequest struct {
-	Page     int    `json:"page"`
-	PageSize int    `json:"page_size"`
-	Keyword  string `json:"keyword"`
+	meta.Meta `path:"/api/role/list" method:"POST"`
+	Page      int    `json:"page"`
+	PageSize  int    `json:"page_size"`
+	Keyword   string `json:"keyword"`
 }
 
 // ListRolesResponse returns paginated role list.

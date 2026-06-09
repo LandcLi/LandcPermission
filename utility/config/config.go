@@ -1,52 +1,106 @@
 package config
 
 import (
-	"os"
+	"time"
 
+	frameconfig "github.com/LandcLi/landc-go/frame/pkg/config"
 	"github.com/LandcLi/landc-go/log/facade"
-	"gopkg.in/yaml.v2"
 )
 
 // Config represents the application configuration.
 type Config struct {
-	Server   ServerConfig     `yaml:"server"`
-	Database DatabaseConfig   `yaml:"database"`
-	Redis    RedisConfig      `yaml:"redis"`
-	Log      facade.LogConfig `yaml:"log"`
+	Server   ServerConfig
+	Database DatabaseConfig
+	Redis    RedisConfig
+	Log      facade.LogConfig
 }
 
 // ServerConfig represents server configuration.
 type ServerConfig struct {
-	Port            string `yaml:"port"`
-	GinMode         string `yaml:"gin_mode"`
-	EnableCORS      bool   `yaml:"enable_cors"`
-	UseDefaultRoute bool   `yaml:"use_default_route"`
+	Host             string
+	Port             int
+	GinMode          string
+	EnableCORS       bool
+	UserDefaultRoute bool
 }
 
 // DatabaseConfig represents database configuration.
 type DatabaseConfig struct {
-	Driver string `yaml:"driver"`
-	DSN    string `yaml:"dsn"`
+	DSN             string
+	MaxIdleConns    int
+	MaxOpenConns    int
+	ConnMaxLifetime int
 }
 
 // RedisConfig represents Redis configuration.
 type RedisConfig struct {
-	Addr     string `yaml:"addr"`
-	Password string `yaml:"password"`
-	DB       int    `yaml:"db"`
+	Addr     string
+	Password string
+	DB       int
+	PoolSize int
 }
 
-// LoadConfig loads configuration from a YAML file.
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+// GetConfig 从框架全局配置中提取类型化配置。
+// 配置由框架全权加载和管理，此函数仅做类型转换。
+func GetConfig() *Config {
+	fc := frameconfig.GetConfig()
+	if fc == nil {
+		panic("框架配置未初始化，请先调用 frameconfig.InitGlobalConfigWithPath")
 	}
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
+	return extractConfig(fc)
+}
+
+func extractConfig(fc *frameconfig.Config) *Config {
+	cfg := &Config{
+		Server: ServerConfig{
+			Host:             fc.Server.Addr,
+			Port:             fc.Server.Port,
+			UserDefaultRoute: fc.Server.UseDefaultRoutes,
+		},
+		Database: DatabaseConfig{
+			DSN:             fc.Database.DSN,
+			MaxOpenConns:    fc.Database.MaxOpenConns,
+			MaxIdleConns:    fc.Database.MaxIdleConns,
+			ConnMaxLifetime: fc.Database.ConnMaxLifetime,
+		},
+		Redis: RedisConfig{
+			Addr:     fc.Redis.Addr,
+			Password: fc.Redis.Password,
+			DB:       fc.Redis.DB,
+			PoolSize: fc.Redis.PoolSize,
+		},
 	}
 
-	return &cfg, nil
+	// 从框架 LogConfig 转换为 facade.LogConfig
+	cfg.Log = facade.LogConfig{
+		Provider:    "console",
+		Name:        "landc-permission",
+		Level:       parseLogLevel(fc.Log.Level),
+		Format:      fc.Log.Format,
+		OutputPath:  fc.Log.Output,
+		MaxLogSize:  int64(fc.Log.MaxSize),
+		MaxLogFiles: fc.Log.MaxBackups,
+		MaxLogAge:   time.Duration(fc.Log.MaxAge) * 24 * time.Hour,
+	}
+
+	return cfg
+}
+
+// parseLogLevel 解析日志级别字符串
+func parseLogLevel(level string) facade.LogLevel {
+	switch level {
+	case "debug":
+		return facade.DebugLevel
+	case "info":
+		return facade.InfoLevel
+	case "warn", "warning":
+		return facade.WarnLevel
+	case "error":
+		return facade.ErrorLevel
+	case "fatal":
+		return facade.FatalLevel
+	default:
+		return facade.InfoLevel
+	}
 }

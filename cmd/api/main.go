@@ -8,14 +8,13 @@ import (
 )
 
 func main() {
-	engine, err := landcpermission.InitDefault("config.yml")
+	server, err := landcpermission.InitDefault("config.yml")
 	if err != nil {
 		log.Fatalf("Failed to initialize: %v", err)
 	}
 
-	port := ":8082"
-	fmt.Printf("LandcPermission starting on %s\n", port)
-	if err := engine.Run(port); err != nil {
+	fmt.Println("LandcPermission starting...")
+	if err := server.Run(); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

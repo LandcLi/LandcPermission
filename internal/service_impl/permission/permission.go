@@ -172,6 +172,19 @@ func (s *permissionServiceImpl) CheckPermission(userID uint, resource, action st
 	return false, nil
 }
 
+// CheckPermissionWithContext 支持多种权限模型的权限校验
+// 默认实现为 RBAC，可通过 DI 替换为 ABAC/ACL 等其他模型
+func (s *permissionServiceImpl) CheckPermissionWithContext(ctx *model.PermissionContext) (bool, error) {
+	// 尝试使用注册的 PermissionChecker（支持多种权限模型）
+	checker := service.GetPermissionChecker()
+	if checker != nil {
+		return checker.CheckPermission(ctx)
+	}
+
+	// 默认回退到 RBAC 实现
+	return s.CheckPermission(ctx.UserID, ctx.Resource, ctx.Action)
+}
+
 // getAllUserRoleIDs aggregates directly assigned roles + organization-inherited roles.
 func (s *permissionServiceImpl) getAllUserRoleIDs(userID uint) ([]uint, error) {
 	// Get directly assigned roles

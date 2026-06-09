@@ -1,45 +1,20 @@
 package db
 
 import (
-	"github.com/LandcLi/LandcPermission/utility/config"
-	"github.com/go-redis/redis/v8"
-	"gorm.io/driver/mysql"
+	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
+	framedb "github.com/LandcLi/landc-go/frame/pkg/db"
 	"gorm.io/gorm"
 )
 
-var (
-	database    *gorm.DB
-	redisClient *redis.Client
-)
+// 以下函数是对框架 db/cache 包的兼容性封装
+// 新代码请直接使用 framedb.GetDB() 和 framecache.GetCache()
 
-// InitDatabase initializes the database connection.
-func InitDatabase(cfg *config.DatabaseConfig) {
-	db, err := gorm.Open(mysql.Open(cfg.DSN), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database: " + err.Error())
-	}
-	database = db
-}
-
-// GetDB returns the database instance.
+// GetDB 获取数据库连接（委托给框架）
 func GetDB() *gorm.DB {
-	return database
+	return framedb.GetDB()
 }
 
-// InitRedis initializes the Redis connection (optional).
-// If cfg is nil or Addr is empty, Redis will not be initialized.
-func InitRedis(cfg *config.RedisConfig) {
-	if cfg == nil || cfg.Addr == "" {
-		return
-	}
-	redisClient = redis.NewClient(&redis.Options{
-		Addr:     cfg.Addr,
-		Password: cfg.Password,
-		DB:       cfg.DB,
-	})
-}
-
-// GetRedis returns the Redis client (may be nil if not configured).
-func GetRedis() *redis.Client {
-	return redisClient
+// GetRedis 获取 Redis 缓存实例（委托给框架 cache 包）
+func GetRedis() any {
+	return framecache.GetCache()
 }

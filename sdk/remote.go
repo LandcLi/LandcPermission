@@ -3,9 +3,7 @@ package sdk
 import (
 	"context"
 
-	"github.com/LandcLi/LandcPermission/api/permission"
 	permV1 "github.com/LandcLi/LandcPermission/api/permission/v1"
-	"github.com/LandcLi/LandcPermission/api/role"
 	roleV1 "github.com/LandcLi/LandcPermission/api/role/v1"
 	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
@@ -18,7 +16,7 @@ type RemoteRoleController struct {
 // NewRemoteRoleController creates a remote role controller.
 func NewRemoteRoleController(baseURL string, opts ...di.RemoteOption) *RemoteRoleController {
 	return &RemoteRoleController{
-		client: di.NewProxyClient(baseURL, role.RoleRoutes, opts...),
+		client: di.NewProxyClient(baseURL, opts...),
 	}
 }
 
@@ -50,7 +48,7 @@ type RemotePermissionController struct {
 // NewRemotePermissionController creates a remote permission controller.
 func NewRemotePermissionController(baseURL string, opts ...di.RemoteOption) *RemotePermissionController {
 	return &RemotePermissionController{
-		client: di.NewProxyClient(baseURL, permission.PermissionRoutes, opts...),
+		client: di.NewProxyClient(baseURL, opts...),
 	}
 }
 
@@ -104,4 +102,8 @@ func (r *RemotePermissionController) GetUserPermissions(ctx context.Context, req
 
 func (r *RemotePermissionController) CheckPermission(ctx context.Context, req *permV1.CheckPermissionRequest) (*permV1.CheckPermissionResponse, error) {
 	return di.Call[permV1.CheckPermissionResponse](r.client, ctx, "CheckPermission", req)
+}
+
+func (r *RemotePermissionController) CheckPermissionWithContext(ctx context.Context, req *permV1.CheckPermissionWithContextRequest) (*permV1.CheckPermissionWithContextResponse, error) {
+	return di.Call[permV1.CheckPermissionWithContextResponse](r.client, ctx, "CheckPermissionWithContext", req)
 }

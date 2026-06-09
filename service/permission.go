@@ -25,8 +25,11 @@ type PermissionService interface {
 	GetUserRoles(userID uint) ([]model.Role, error)
 	GetUserPermissions(userID uint) ([]model.Permission, error)
 
-	// Permission check
+	// Permission check (RBAC 基础方法)
 	CheckPermission(userID uint, resource, action string) (bool, error)
+
+	// Permission check with context (支持多种权限模型扩展)
+	CheckPermissionWithContext(ctx *model.PermissionContext) (bool, error)
 }
 
 func RegisterPermissionService(impl PermissionService) {

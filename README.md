@@ -1,6 +1,6 @@
 # LandcPermission
 
-基于 RBAC 模型的权限管理系统，提供角色管理、权限管理、用户-角色绑定、权限校验等功能，支持组织架构驱动的自动授权。
+基于 RBAC 模型的权限管理系统，提供角色管理、权限管理、用户-角色绑定、权限校验等功能，支持组织架构驱动的自动授权。**支持多种权限模型扩展（RBAC、ABAC、ACL）**。
 
 ## 功能特性
 
@@ -20,8 +20,15 @@
 
 ### 权限校验
 - `CheckPermission(userID, resource, action)` — 一行代码完成权限校验
+- `CheckPermissionWithContext(ctx)` — 支持多种权限模型的扩展校验
 - 聚合直接分配的角色 + 组织继承的角色（需集成 LandcOrg）
 - 通配符资源匹配
+
+### 多权限模型支持
+- **RBAC**（默认）：基于角色的访问控制
+- **ABAC**：基于属性的访问控制（用户属性、资源属性、环境属性）
+- **ACL**：访问控制列表
+- 通过 DI 机制可灵活切换和扩展权限模型
 
 ### 组织驱动授权（可选）
 - 通过 `OrgRoleProvider` 接口对接 LandcOrg
@@ -192,6 +199,109 @@ dao.RegisterRoleDAO(myRedisRoleDAO)
 
 // 对接组织架构（从 LandcOrg 获取继承角色）
 service.RegisterOrgRoleProvider(orgRoleService)
+```
+
+## 多权限模型扩展
+
+### 使用 ABAC 权限模型
+
+```go
+import (
+    "github.com/LandcLi/LandcPermission/internal/service_impl/abac"
+    "github.com/LandcLi/LandcPermission/service"
+)
+
+// 定义 ABAC 策略
+policies := []service.ABACPolicy{
+    {
+        ID:          1,
+        Name:        "部门数据访问策略",
+        Description: "只允许访问本部门数据",
+        Conditions: []service.PolicyCondition{
+            {
+                AttributeType: service.AttributeTypeUser,
+                AttributeKey:  "department_id",
+                Operator:      service.ConditionOperatorEqual,
+                Value:         "resource.department_id", // 动态引用
+            },
+        },
+        Effect:   service.PolicyEffectAllow,
+        Priority: 100,
+    },
+}
+
+// 注册 ABAC 校验器
+abac.RegisterABACChecker(policies)
+
+// 使用权限校验（带上下文）
+permCtx := model.NewPermissionContext(ctx, userID, "user.profile", "read").
+    WithUserAttributes(map[string]interface{}{
+        "department_id": 1,
+        "level":         "manager",
+    }).
+    WithResourceAttributes(map[string]interface{}{
+        "department_id": 1,
+        "sensitivity":   "high",
+    }).
+    WithEnvironmentAttrs(map[string]interface{}{
+        "time": time.Now(),
+        "ip":   "192.168.1.1",
+    })
+
+allowed, err := service.GetPermissionService().CheckPermissionWithContext(permCtx)
+```
+
+### 使用 ACL 权限模型
+
+```go
+// 实现 ACLPermissionChecker 接口
+type MyACLChecker struct{}
+
+func (c *MyACLChecker) CheckPermission(ctx *model.PermissionContext) (bool, error) {
+    return c.CheckACL(ctx.UserID, ctx.Resource, ctx.Action)
+}
+
+func (c *MyACLChecker) GetModelType() service.PermissionModelType {
+    return service.PermissionModelACL
+}
+
+// 注册 ACL 校验器
+service.RegisterPermissionChecker(&MyACLChecker{})
+```
+
+### API 接口（支持多权限模型）
+
+```bash
+# RBAC 基础校验
+POST /api/permission/check
+{
+    "user_id": 1,
+    "resource": "user.profile",
+    "action": "write"
+}
+
+# 多权限模型校验（支持 ABAC/ACL）
+POST /api/permission/check-with-context
+{
+    "user_id": 1,
+    "resource": "user.profile",
+    "action": "write",
+    "tenant_id": 100,
+    "attrs": {
+        "user_attributes": {
+            "department_id": 1,
+            "level": "manager"
+        },
+        "resource_attributes": {
+            "owner_id": 1,
+            "sensitivity": "high"
+        },
+        "environment_attrs": {
+            "ip": "192.168.1.1",
+            "time": "2024-01-01T10:00:00Z"
+        }
+    }
+}
 ```
 
 ## 许可证

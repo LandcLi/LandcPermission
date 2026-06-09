@@ -16,17 +16,8 @@ type RoleController interface {
 	ListRoles(ctx context.Context, req *v1.ListRolesRequest) (*v1.ListRolesResponse, error)
 }
 
-// RoleRoutes maps controller methods to HTTP endpoints.
-var RoleRoutes = di.Routes{
-	"CreateRole": {Method: "POST", Path: "/api/role/create"},
-	"UpdateRole": {Method: "POST", Path: "/api/role/update"},
-	"DeleteRole": {Method: "POST", Path: "/api/role/delete"},
-	"GetRole":    {Method: "POST", Path: "/api/role/get"},
-	"ListRoles":  {Method: "POST", Path: "/api/role/list"},
-}
-
 // RoleGateway is the service gateway for role management.
-var RoleGateway = di.NewGateway[RoleController]("role.controller", RoleRoutes)
+var RoleGateway = di.NewGateway[RoleController]("role.controller")
 
 // GetRoleController returns the registered RoleController implementation.
 func GetRoleController() RoleController {

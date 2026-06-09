@@ -29,30 +29,13 @@ type PermissionController interface {
 
 	// Permission check
 	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
-}
 
-// PermissionRoutes maps controller methods to HTTP endpoints.
-var PermissionRoutes = di.Routes{
-	"CreatePermission": {Method: "POST", Path: "/api/permission/create"},
-	"UpdatePermission": {Method: "POST", Path: "/api/permission/update"},
-	"DeletePermission": {Method: "POST", Path: "/api/permission/delete"},
-	"GetPermission":    {Method: "POST", Path: "/api/permission/get"},
-	"ListPermissions":  {Method: "POST", Path: "/api/permission/list"},
-
-	"AssignPermissions": {Method: "POST", Path: "/api/permission/assign-to-role"},
-	"RevokePermissions": {Method: "POST", Path: "/api/permission/revoke-from-role"},
-	"GetRolePermissions": {Method: "POST", Path: "/api/permission/get-role-permissions"},
-
-	"AssignRoles":      {Method: "POST", Path: "/api/permission/assign-roles"},
-	"RevokeRoles":      {Method: "POST", Path: "/api/permission/revoke-roles"},
-	"GetUserRoles":     {Method: "POST", Path: "/api/permission/get-user-roles"},
-	"GetUserPermissions": {Method: "POST", Path: "/api/permission/get-user-permissions"},
-
-	"CheckPermission": {Method: "POST", Path: "/api/permission/check"},
+	// Permission check with context (支持多种权限模型)
+	CheckPermissionWithContext(ctx context.Context, req *v1.CheckPermissionWithContextRequest) (*v1.CheckPermissionWithContextResponse, error)
 }
 
 // PermissionGateway is the service gateway for permission management.
-var PermissionGateway = di.NewGateway[PermissionController]("permission.controller", PermissionRoutes)
+var PermissionGateway = di.NewGateway[PermissionController]("permission.controller")
 
 // GetPermissionController returns the registered PermissionController implementation.
 func GetPermissionController() PermissionController {

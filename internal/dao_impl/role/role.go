@@ -2,24 +2,32 @@ package role
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/LandcLi/LandcPermission/dao"
 	"github.com/LandcLi/LandcPermission/model"
 	"github.com/LandcLi/LandcPermission/utility/db"
-	"github.com/go-redis/redis/v8"
+	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 )
 
 func init() {
 	dao.RegisterRoleDAO(&roleDAOImpl{
-		redisClient: db.GetRedis(),
+		cache: getCache(),
 	})
 }
 
+// getCache 获取缓存实例（支持弱Redis，无Redis时使用本地缓存）
+func getCache() framecache.Cache {
+	c := db.GetRedis()
+	if c == nil {
+		return nil
+	}
+	return c.(framecache.Cache)
+}
+
 type roleDAOImpl struct {
-	redisClient *redis.Client
+	cache framecache.Cache
 }
 
 func (d *roleDAOImpl) Create(role *model.Role) error {
@@ -35,7 +43,7 @@ func (d *roleDAOImpl) Update(role *model.Role) error {
 }
 
 func (d *roleDAOImpl) Delete(id uint) error {
-	if d.redisClient != nil {
+	if d.cache != nil {
 		if role, err := d.GetByID(id); err == nil {
 			defer d.invalidateCache(role.ID, role.Code)
 		}
@@ -44,14 +52,12 @@ func (d *roleDAOImpl) Delete(id uint) error {
 }
 
 func (d *roleDAOImpl) GetByID(id uint) (*model.Role, error) {
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role:id:%d", id)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("role:id:%d", id)
+	if d.cache != nil {
+		var role model.Role
+		err := d.cache.GetObject(context.Background(), cacheKey, &role)
 		if err == nil {
-			var role model.Role
-			if err := json.Unmarshal(data, &role); err == nil {
-				return &role, nil
-			}
+			return &role, nil
 		}
 	}
 
@@ -61,24 +67,20 @@ func (d *roleDAOImpl) GetByID(id uint) (*model.Role, error) {
 		return nil, err
 	}
 
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role:id:%d", id)
-		data, _ := json.Marshal(role)
-		d.redisClient.Set(context.Background(), cacheKey, data, time.Hour)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, role, time.Hour)
 	}
 
 	return &role, nil
 }
 
 func (d *roleDAOImpl) GetByCode(code string) (*model.Role, error) {
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role:code:%s", code)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("role:code:%s", code)
+	if d.cache != nil {
+		var role model.Role
+		err := d.cache.GetObject(context.Background(), cacheKey, &role)
 		if err == nil {
-			var role model.Role
-			if err := json.Unmarshal(data, &role); err == nil {
-				return &role, nil
-			}
+			return &role, nil
 		}
 	}
 
@@ -88,10 +90,8 @@ func (d *roleDAOImpl) GetByCode(code string) (*model.Role, error) {
 		return nil, err
 	}
 
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role:code:%s", code)
-		data, _ := json.Marshal(role)
-		d.redisClient.Set(context.Background(), cacheKey, data, time.Hour)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, role, time.Hour)
 	}
 
 	return &role, nil
@@ -123,12 +123,12 @@ func (d *roleDAOImpl) GetByIDs(ids []uint) ([]model.Role, error) {
 }
 
 func (d *roleDAOImpl) invalidateCache(id uint, code string) {
-	if d.redisClient == nil {
+	if d.cache == nil {
 		return
 	}
 	ctx := context.Background()
-	d.redisClient.Del(ctx, fmt.Sprintf("role:id:%d", id))
+	_ = d.cache.Delete(ctx, fmt.Sprintf("role:id:%d", id))
 	if code != "" {
-		d.redisClient.Del(ctx, fmt.Sprintf("role:code:%s", code))
+		_ = d.cache.Delete(ctx, fmt.Sprintf("role:code:%s", code))
 	}
 }

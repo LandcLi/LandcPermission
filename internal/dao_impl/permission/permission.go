@@ -2,24 +2,32 @@ package permission
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/LandcLi/LandcPermission/dao"
 	"github.com/LandcLi/LandcPermission/model"
 	"github.com/LandcLi/LandcPermission/utility/db"
-	"github.com/go-redis/redis/v8"
+	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 )
 
 func init() {
 	dao.RegisterPermissionDAO(&permissionDAOImpl{
-		redisClient: db.GetRedis(),
+		cache: getCache(),
 	})
 }
 
+// getCache 获取缓存实例（支持弱Redis，无Redis时使用本地缓存）
+func getCache() framecache.Cache {
+	c := db.GetRedis()
+	if c == nil {
+		return nil
+	}
+	return c.(framecache.Cache)
+}
+
 type permissionDAOImpl struct {
-	redisClient *redis.Client
+	cache framecache.Cache
 }
 
 func (d *permissionDAOImpl) Create(perm *model.Permission) error {
@@ -36,7 +44,7 @@ func (d *permissionDAOImpl) Update(perm *model.Permission) error {
 
 func (d *permissionDAOImpl) Delete(id uint) error {
 	// Get permission info before delete for cache invalidation
-	if d.redisClient != nil {
+	if d.cache != nil {
 		if perm, err := d.GetByID(id); err == nil {
 			defer d.invalidateCache(perm.ID, perm.Code)
 		}
@@ -46,14 +54,12 @@ func (d *permissionDAOImpl) Delete(id uint) error {
 
 func (d *permissionDAOImpl) GetByID(id uint) (*model.Permission, error) {
 	// Try cache first
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("perm:id:%d", id)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("perm:id:%d", id)
+	if d.cache != nil {
+		var perm model.Permission
+		err := d.cache.GetObject(context.Background(), cacheKey, &perm)
 		if err == nil {
-			var perm model.Permission
-			if err := json.Unmarshal(data, &perm); err == nil {
-				return &perm, nil
-			}
+			return &perm, nil
 		}
 	}
 
@@ -64,10 +70,8 @@ func (d *permissionDAOImpl) GetByID(id uint) (*model.Permission, error) {
 	}
 
 	// Store in cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("perm:id:%d", id)
-		data, _ := json.Marshal(perm)
-		d.redisClient.Set(context.Background(), cacheKey, data, time.Hour)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, perm, time.Hour)
 	}
 
 	return &perm, nil
@@ -75,14 +79,12 @@ func (d *permissionDAOImpl) GetByID(id uint) (*model.Permission, error) {
 
 func (d *permissionDAOImpl) GetByCode(code string) (*model.Permission, error) {
 	// Try cache first
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("perm:code:%s", code)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("perm:code:%s", code)
+	if d.cache != nil {
+		var perm model.Permission
+		err := d.cache.GetObject(context.Background(), cacheKey, &perm)
 		if err == nil {
-			var perm model.Permission
-			if err := json.Unmarshal(data, &perm); err == nil {
-				return &perm, nil
-			}
+			return &perm, nil
 		}
 	}
 
@@ -93,10 +95,8 @@ func (d *permissionDAOImpl) GetByCode(code string) (*model.Permission, error) {
 	}
 
 	// Store in cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("perm:code:%s", code)
-		data, _ := json.Marshal(perm)
-		d.redisClient.Set(context.Background(), cacheKey, data, time.Hour)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, perm, time.Hour)
 	}
 
 	return &perm, nil
@@ -132,12 +132,12 @@ func (d *permissionDAOImpl) GetByIDs(ids []uint) ([]model.Permission, error) {
 
 // invalidateCache removes cached permission data.
 func (d *permissionDAOImpl) invalidateCache(id uint, code string) {
-	if d.redisClient == nil {
+	if d.cache == nil {
 		return
 	}
 	ctx := context.Background()
-	d.redisClient.Del(ctx, fmt.Sprintf("perm:id:%d", id))
+	_ = d.cache.Delete(ctx, fmt.Sprintf("perm:id:%d", id))
 	if code != "" {
-		d.redisClient.Del(ctx, fmt.Sprintf("perm:code:%s", code))
+		_ = d.cache.Delete(ctx, fmt.Sprintf("perm:code:%s", code))
 	}
 }

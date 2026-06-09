@@ -5,6 +5,7 @@ import (
 
 	permApi "github.com/LandcLi/LandcPermission/api/permission"
 	v1 "github.com/LandcLi/LandcPermission/api/permission/v1"
+	"github.com/LandcLi/LandcPermission/model"
 	"github.com/LandcLi/LandcPermission/service"
 	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
@@ -184,4 +185,31 @@ func (c *permissionControllerImpl) CheckPermission(ctx context.Context, req *v1.
 		return nil, err
 	}
 	return &v1.CheckPermissionResponse{Allowed: allowed}, nil
+}
+
+func (c *permissionControllerImpl) CheckPermissionWithContext(ctx context.Context, req *v1.CheckPermissionWithContextRequest) (*v1.CheckPermissionWithContextResponse, error) {
+	// 构建权限上下文
+	permCtx := model.NewPermissionContext(ctx, req.UserID, req.Resource, req.Action).
+		WithTenantID(req.TenantID).
+		WithUserAttributes(req.Attrs.UserAttributes).
+		WithResourceAttributes(req.Attrs.ResourceAttributes).
+		WithEnvironmentAttrs(req.Attrs.EnvironmentAttrs)
+
+	allowed, err := service.GetPermissionService().CheckPermissionWithContext(permCtx)
+	if err != nil {
+		return &v1.CheckPermissionWithContextResponse{
+			Allowed: false,
+			Reason:  err.Error(),
+		}, nil
+	}
+
+	reason := ""
+	if !allowed {
+		reason = "permission denied"
+	}
+
+	return &v1.CheckPermissionWithContextResponse{
+		Allowed: allowed,
+		Reason:  reason,
+	}, nil
 }

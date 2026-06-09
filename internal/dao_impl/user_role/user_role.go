@@ -2,26 +2,34 @@ package user_role
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/LandcLi/LandcPermission/dao"
 	"github.com/LandcLi/LandcPermission/model"
 	"github.com/LandcLi/LandcPermission/utility/db"
-	"github.com/go-redis/redis/v8"
+	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 )
 
 func init() {
-	impl := &userRoleDAOImpl{redisClient: db.GetRedis()}
-	dao.RegisterRolePermissionDAO(&rolePermissionDAOImpl{redisClient: db.GetRedis()})
-	dao.RegisterUserRoleDAO(impl)
+	cache := getCache()
+	dao.RegisterRolePermissionDAO(&rolePermissionDAOImpl{cache: cache})
+	dao.RegisterUserRoleDAO(&userRoleDAOImpl{cache: cache})
+}
+
+// getCache 获取缓存实例（支持弱Redis，无Redis时使用本地缓存）
+func getCache() framecache.Cache {
+	c := db.GetRedis()
+	if c == nil {
+		return nil
+	}
+	return c.(framecache.Cache)
 }
 
 // --- RolePermission DAO ---
 
 type rolePermissionDAOImpl struct {
-	redisClient *redis.Client
+	cache framecache.Cache
 }
 
 func (d *rolePermissionDAOImpl) AssignPermissions(roleID uint, permissionIDs []uint) error {
@@ -51,14 +59,12 @@ func (d *rolePermissionDAOImpl) RevokePermissions(roleID uint, permissionIDs []u
 
 func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleID(roleID uint) ([]uint, error) {
 	// Try cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role_perms:%d", roleID)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("role_perms:%d", roleID)
+	if d.cache != nil {
+		var ids []uint
+		err := d.cache.GetObject(context.Background(), cacheKey, &ids)
 		if err == nil {
-			var ids []uint
-			if err := json.Unmarshal(data, &ids); err == nil {
-				return ids, nil
-			}
+			return ids, nil
 		}
 	}
 
@@ -71,10 +77,8 @@ func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleID(roleID uint) ([]uint, e
 	}
 
 	// Store in cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("role_perms:%d", roleID)
-		data, _ := json.Marshal(ids)
-		d.redisClient.Set(context.Background(), cacheKey, data, 30*time.Minute)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
 	}
 
 	return ids, nil
@@ -90,16 +94,16 @@ func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleIDs(roleIDs []uint) ([]uin
 }
 
 func (d *rolePermissionDAOImpl) invalidateRolePermCache(roleID uint) {
-	if d.redisClient == nil {
+	if d.cache == nil {
 		return
 	}
-	d.redisClient.Del(context.Background(), fmt.Sprintf("role_perms:%d", roleID))
+	_ = d.cache.Delete(context.Background(), fmt.Sprintf("role_perms:%d", roleID))
 }
 
 // --- UserRole DAO ---
 
 type userRoleDAOImpl struct {
-	redisClient *redis.Client
+	cache framecache.Cache
 }
 
 func (d *userRoleDAOImpl) AssignRoles(userID uint, roleIDs []uint) error {
@@ -129,14 +133,12 @@ func (d *userRoleDAOImpl) RevokeRoles(userID uint, roleIDs []uint) error {
 
 func (d *userRoleDAOImpl) GetRoleIDsByUserID(userID uint) ([]uint, error) {
 	// Try cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("user_roles:%d", userID)
-		data, err := d.redisClient.Get(context.Background(), cacheKey).Bytes()
+	cacheKey := fmt.Sprintf("user_roles:%d", userID)
+	if d.cache != nil {
+		var ids []uint
+		err := d.cache.GetObject(context.Background(), cacheKey, &ids)
 		if err == nil {
-			var ids []uint
-			if err := json.Unmarshal(data, &ids); err == nil {
-				return ids, nil
-			}
+			return ids, nil
 		}
 	}
 
@@ -149,10 +151,8 @@ func (d *userRoleDAOImpl) GetRoleIDsByUserID(userID uint) ([]uint, error) {
 	}
 
 	// Store in cache
-	if d.redisClient != nil {
-		cacheKey := fmt.Sprintf("user_roles:%d", userID)
-		data, _ := json.Marshal(ids)
-		d.redisClient.Set(context.Background(), cacheKey, data, 30*time.Minute)
+	if d.cache != nil {
+		_ = d.cache.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
 	}
 
 	return ids, nil
@@ -165,8 +165,8 @@ func (d *userRoleDAOImpl) GetUsersByRoleID(roleID uint) ([]model.UserRole, error
 }
 
 func (d *userRoleDAOImpl) invalidateUserRoleCache(userID uint) {
-	if d.redisClient == nil {
+	if d.cache == nil {
 		return
 	}
-	d.redisClient.Del(context.Background(), fmt.Sprintf("user_roles:%d", userID))
+	_ = d.cache.Delete(context.Background(), fmt.Sprintf("user_roles:%d", userID))
 }
