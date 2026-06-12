@@ -83,7 +83,7 @@ func initInfrastructure(cfg *config.Config) error {
 
 func registerRoutes(server *web.Server) {
 	engine := server.Engine()
-	engine.Use(middleware.Trace(), middleware.CORS(), middleware.Recovery())
+	engine.Use(middleware.Trace(), middleware.CORS(), middleware.Recovery(), middleware.Auth())
 	api.RegisterDefaultRoutes(engine)
 
 	// 注册控制器（自动从 meta.Meta 标签解析路由）

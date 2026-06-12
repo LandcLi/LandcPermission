@@ -72,6 +72,18 @@ func extractConfig(fc *frameconfig.Config) *Config {
 		},
 	}
 
+	// 从自定义配置提取 GinMode
+	if v, ok := fc.GetOther("gin_mode"); ok {
+		if s, ok := v.(string); ok {
+			cfg.Server.GinMode = s
+		}
+	}
+	if v, ok := fc.GetOther("enable_cors"); ok {
+		if b, ok := v.(bool); ok {
+			cfg.Server.EnableCORS = b
+		}
+	}
+
 	// 从框架 LogConfig 转换为 facade.LogConfig
 	cfg.Log = facade.LogConfig{
 		Provider:    "console",
