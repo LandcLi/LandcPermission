@@ -139,6 +139,27 @@ landcpermission.InitWithConfigAndGin(permCfg, ginEngine)
 
 库模式只注册控制器，不会创建 engine、不会调用 `Run`，宿主可继续追加自有路由。
 
+### 4. Docker 部署
+
+```bash
+docker build -t landc-permission:0.2.0 .
+
+docker run -d --name landc-permission \
+  -p 8082:8082 \
+  -v "$(pwd)/data:/app/data" \
+  landc-permission:0.2.0
+```
+
+镜像要点：
+
+- 多阶段构建，产物是 `CGO_ENABLED=0` 静态二进制（纯 Go SQLite 驱动，运行阶段无需 gcc）
+- 以非 root 用户 `app` 运行，`/app/data` 与 `/app/logs` 已预建并授权
+- 内置 `HEALTHCHECK` 打 `/health`，可直接被 compose / k8s 探活
+- 时区固定 `Asia/Shanghai`（`tzdata` 已安装）——权限的 `expire_at` 是绝对时间，
+  缺时区库会导致过期判断偏移
+
+挂载 `data/` 是关键：不挂载时容器重建会丢掉 SQLite 库。
+
 
 ## 使用 SDK（远程调用模式）
 
@@ -200,12 +221,12 @@ fmt.Println(resp.Allowed) // true or false
 授予直接权限示例：
 
 ```bash
-curl -X POST http://127.0.0.1:8084/api/permission/grant-direct \
+curl -X POST http://127.0.0.1:8082/api/permission/grant-direct \
   -H 'Content-Type: application/json' \
   -d '{
     "user_id": 1001,
     "grants": [
-      {"permission_id": 7, "expire_at": "2026-02-06T00:00:00Z", "reason": "线上故障应急"}
+      {"permission_id": 7, "expire_at": "2026-10-26T00:00:00Z", "reason": "线上故障应急"}
     ]
   }'
 ```

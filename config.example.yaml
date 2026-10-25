@@ -1,7 +1,7 @@
 # LandcPermission 配置示例
 #
 # 快速开始（零外部依赖）：
-#   cp config.example.yml config.yaml
+#   cp config.example.yaml config.yaml
 #   go run ./cmd/api
 #
 # 切换到 MySQL（生产）：

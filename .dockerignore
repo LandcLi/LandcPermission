@@ -1,0 +1,30 @@
+# 版本控制与 CI
+.git
+.github
+.gitignore
+
+# 文档
+*.md
+docs/
+
+# 构建产物与本地运行时数据
+build/
+bin/
+data/
+logs/
+*.db
+*.db-shm
+*.db-wal
+*.exe
+
+# 本地配置与密钥（镜像内使用 config.example.yaml）
+config.yaml
+config.yml
+keys/
+*.pem
+*.key
+
+# IDE
+.idea/
+.vscode/
+*.swp
