@@ -2,6 +2,7 @@ package permission
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/LandcLi/LandcPermission/dao"
 	"github.com/LandcLi/LandcPermission/model"
@@ -146,8 +147,10 @@ func (s *permissionServiceImpl) GetUserPermissions(userID uint) ([]model.Permiss
 	return dao.GetPermissionDAO().GetByIDs(permIDs)
 }
 
+// CheckPermission 校验用户是否拥有指定权限。
+// 生效来源为「角色权限 ∪ 未过期的直接权限」，两者任一命中即放行。
 func (s *permissionServiceImpl) CheckPermission(userID uint, resource, action string) (bool, error) {
-	perms, err := s.GetUserPermissions(userID)
+	perms, err := s.GetUserEffectivePermissions(userID)
 	if err != nil {
 		return false, err
 	}
@@ -170,6 +173,147 @@ func (s *permissionServiceImpl) CheckPermission(userID uint, resource, action st
 	}
 
 	return false, nil
+}
+
+// --- User-Permission 直接授权 ---
+
+// GrantUserPermissions 授予用户直接权限。
+// 校验两点：权限必须存在；过期时间必须晚于当前时刻（不允许授一个「一出生就过期」的权限）。
+func (s *permissionServiceImpl) GrantUserPermissions(userID uint, grants []model.UserPermission) error {
+	if len(grants) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	ids := make([]uint, 0, len(grants))
+	seen := make(map[uint]struct{}, len(grants))
+
+	for _, g := range grants {
+		if g.PermissionID == 0 {
+			return fmt.Errorf("permission_id is required")
+		}
+		if g.ExpireAt != nil && !g.ExpireAt.After(now) {
+			return fmt.Errorf("permission %d: expire_at must be in the future", g.PermissionID)
+		}
+		if _, ok := seen[g.PermissionID]; ok {
+			continue
+		}
+		seen[g.PermissionID] = struct{}{}
+		ids = append(ids, g.PermissionID)
+	}
+
+	// 权限必须真实存在，否则会产生永远无法命中的授权记录
+	found, err := dao.GetPermissionDAO().GetByIDs(ids)
+	if err != nil {
+		return fmt.Errorf("verify permissions: %w", err)
+	}
+	if len(found) != len(ids) {
+		existing := make(map[uint]struct{}, len(found))
+		for _, p := range found {
+			existing[p.ID] = struct{}{}
+		}
+		missing := make([]uint, 0, len(ids))
+		for _, id := range ids {
+			if _, ok := existing[id]; !ok {
+				missing = append(missing, id)
+			}
+		}
+		return fmt.Errorf("permissions not found: %v", missing)
+	}
+
+	return dao.GetUserPermissionDAO().Grant(userID, grants)
+}
+
+// RevokeUserPermissions 撤销用户的直接权限。
+func (s *permissionServiceImpl) RevokeUserPermissions(userID uint, permissionIDs []uint) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	return dao.GetUserPermissionDAO().Revoke(userID, permissionIDs)
+}
+
+// GetUserDirectPermissions 返回用户的直接授权记录（含已过期，供管理端查看全貌）。
+// 调用方可借助 model.UserPermission.IsExpired 标记每条的当前状态。
+func (s *permissionServiceImpl) GetUserDirectPermissions(userID uint) ([]model.UserPermission, error) {
+	return dao.GetUserPermissionDAO().GetByUserID(userID)
+}
+
+// GetUserDirectPermissionDetails 返回直接授权记录，并补齐权限编码 / 名称与过期状态。
+// 权限信息用一次批量查询取回，避免 N+1。
+func (s *permissionServiceImpl) GetUserDirectPermissionDetails(userID uint) ([]model.UserPermissionDetail, error) {
+	records, err := dao.GetUserPermissionDAO().GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(records) == 0 {
+		return []model.UserPermissionDetail{}, nil
+	}
+
+	ids := make([]uint, 0, len(records))
+	for _, r := range records {
+		ids = append(ids, r.PermissionID)
+	}
+
+	permByID := make(map[uint]model.Permission, len(ids))
+	if perms, err := dao.GetPermissionDAO().GetByIDs(ids); err == nil {
+		for _, p := range perms {
+			permByID[p.ID] = p
+		}
+	}
+
+	now := time.Now()
+	details := make([]model.UserPermissionDetail, 0, len(records))
+	for _, r := range records {
+		d := model.UserPermissionDetail{
+			UserPermission: r,
+			Expired:        r.IsExpired(now),
+		}
+		if p, ok := permByID[r.PermissionID]; ok {
+			d.PermissionCode = p.Code
+			d.PermissionName = p.Name
+		}
+		details = append(details, d)
+	}
+	return details, nil
+}
+
+// GetUserEffectivePermissions 返回用户最终有效权限 = 角色权限 ∪ 未过期直接权限，按权限 ID 去重。
+func (s *permissionServiceImpl) GetUserEffectivePermissions(userID uint) ([]model.Permission, error) {
+	rolePerms, err := s.GetUserPermissions(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	directPermIDs, err := dao.GetUserPermissionDAO().GetActivePermissionIDsByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+	if len(directPermIDs) == 0 {
+		return rolePerms, nil
+	}
+
+	directPerms, err := dao.GetPermissionDAO().GetByIDs(directPermIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	seen := make(map[uint]struct{}, len(rolePerms)+len(directPerms))
+	result := make([]model.Permission, 0, len(rolePerms)+len(directPerms))
+	for _, p := range rolePerms {
+		if _, ok := seen[p.ID]; ok {
+			continue
+		}
+		seen[p.ID] = struct{}{}
+		result = append(result, p)
+	}
+	for _, p := range directPerms {
+		if _, ok := seen[p.ID]; ok {
+			continue
+		}
+		seen[p.ID] = struct{}{}
+		result = append(result, p)
+	}
+	return result, nil
 }
 
 // CheckPermissionWithContext 支持多种权限模型的权限校验

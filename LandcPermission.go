@@ -126,6 +126,7 @@ func Models() []interface{} {
 		&model.Permission{},
 		&model.RolePermission{},
 		&model.UserRole{},
+		&model.UserPermission{},
 	}
 }
 

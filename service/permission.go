@@ -25,6 +25,18 @@ type PermissionService interface {
 	GetUserRoles(userID uint) ([]model.Role, error)
 	GetUserPermissions(userID uint) ([]model.Permission, error)
 
+	// User-Permission 直接授权（绕过角色）
+	// GrantUserPermissions 授予直接权限；相同权限重复授予为幂等操作（刷新过期时间与原因）。
+	GrantUserPermissions(userID uint, grants []model.UserPermission) error
+	// RevokeUserPermissions 撤销直接权限。
+	RevokeUserPermissions(userID uint, permissionIDs []uint) error
+	// GetUserDirectPermissions 返回用户的直接授权记录（含已过期，供管理端审计查看）。
+	GetUserDirectPermissions(userID uint) ([]model.UserPermission, error)
+	// GetUserDirectPermissionDetails 返回直接授权记录并补齐权限编码/名称与过期状态。
+	GetUserDirectPermissionDetails(userID uint) ([]model.UserPermissionDetail, error)
+	// GetUserEffectivePermissions 返回用户最终有效权限 = 角色权限 ∪ 未过期直接权限。
+	GetUserEffectivePermissions(userID uint) ([]model.Permission, error)
+
 	// Permission check (RBAC 基础方法)
 	CheckPermission(userID uint, resource, action string) (bool, error)
 

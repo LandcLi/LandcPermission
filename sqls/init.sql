@@ -50,6 +50,22 @@ CREATE TABLE IF NOT EXISTS `user_roles` (
     KEY `idx_role_id` (`role_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
+-- 用户直接权限：绕过角色的定向授权（应急提权 / 外部协作 / 例外授权）。
+-- expire_at 为 NULL 表示永久有效；非 NULL 且已过期时在校验阶段被过滤，
+-- 正确性不依赖清理任务（定期清理仅用于回收空间）。
+CREATE TABLE IF NOT EXISTS `user_permissions` (
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `permission_id` BIGINT UNSIGNED NOT NULL,
+    `expire_at` DATETIME NULL DEFAULT NULL COMMENT 'NULL=永久有效',
+    `reason` VARCHAR(500) DEFAULT '' COMMENT '授权原因，供审计追溯',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_user_permission` (`user_id`, `permission_id`),
+    KEY `idx_user_id` (`user_id`),
+    KEY `idx_expire_at` (`expire_at`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
 -- Default roles
 INSERT INTO
     `roles` (`name`, `code`, `description`)

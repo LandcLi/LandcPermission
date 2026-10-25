@@ -27,6 +27,12 @@ type PermissionController interface {
 	GetUserRoles(ctx context.Context, req *v1.GetUserRolesRequest) (*v1.GetUserRolesResponse, error)
 	GetUserPermissions(ctx context.Context, req *v1.GetUserPermissionsRequest) (*v1.GetUserPermissionsResponse, error)
 
+	// User-Permission 直接授权（绕过角色）
+	GrantUserPermissions(ctx context.Context, req *v1.GrantUserPermissionsRequest) (*v1.GrantUserPermissionsResponse, error)
+	RevokeUserPermissions(ctx context.Context, req *v1.RevokeUserPermissionsRequest) (*v1.RevokeUserPermissionsResponse, error)
+	GetUserDirectPermissions(ctx context.Context, req *v1.GetUserDirectPermissionsRequest) (*v1.GetUserDirectPermissionsResponse, error)
+	GetUserEffectivePermissions(ctx context.Context, req *v1.GetUserEffectivePermissionsRequest) (*v1.GetUserEffectivePermissionsResponse, error)
+
 	// Permission check
 	CheckPermission(ctx context.Context, req *v1.CheckPermissionRequest) (*v1.CheckPermissionResponse, error)
 

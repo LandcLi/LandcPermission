@@ -187,6 +187,75 @@ func (c *permissionControllerImpl) CheckPermission(ctx context.Context, req *v1.
 	return &v1.CheckPermissionResponse{Allowed: allowed}, nil
 }
 
+// --- User-Permission 直接授权 ---
+
+func (c *permissionControllerImpl) GrantUserPermissions(ctx context.Context, req *v1.GrantUserPermissionsRequest) (*v1.GrantUserPermissionsResponse, error) {
+	grants := make([]model.UserPermission, 0, len(req.Grants))
+	for _, g := range req.Grants {
+		grants = append(grants, model.UserPermission{
+			PermissionID: g.PermissionID,
+			ExpireAt:     g.ExpireAt,
+			Reason:       g.Reason,
+		})
+	}
+
+	if err := service.GetPermissionService().GrantUserPermissions(req.UserID, grants); err != nil {
+		return nil, err
+	}
+	return &v1.GrantUserPermissionsResponse{Success: true}, nil
+}
+
+func (c *permissionControllerImpl) RevokeUserPermissions(ctx context.Context, req *v1.RevokeUserPermissionsRequest) (*v1.RevokeUserPermissionsResponse, error) {
+	if err := service.GetPermissionService().RevokeUserPermissions(req.UserID, req.PermissionIDs); err != nil {
+		return nil, err
+	}
+	return &v1.RevokeUserPermissionsResponse{Success: true}, nil
+}
+
+func (c *permissionControllerImpl) GetUserDirectPermissions(ctx context.Context, req *v1.GetUserDirectPermissionsRequest) (*v1.GetUserDirectPermissionsResponse, error) {
+	details, err := service.GetPermissionService().GetUserDirectPermissionDetails(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	grants := make([]v1.DirectPermissionInfo, 0, len(details))
+	for _, d := range details {
+		grants = append(grants, v1.DirectPermissionInfo{
+			ID:           d.ID,
+			PermissionID: d.PermissionID,
+			Code:         d.PermissionCode,
+			Name:         d.PermissionName,
+			ExpireAt:     d.ExpireAt,
+			Expired:      d.Expired,
+			Reason:       d.Reason,
+			CreatedAt:    d.CreatedAt,
+		})
+	}
+
+	return &v1.GetUserDirectPermissionsResponse{Grants: grants}, nil
+}
+
+func (c *permissionControllerImpl) GetUserEffectivePermissions(ctx context.Context, req *v1.GetUserEffectivePermissionsRequest) (*v1.GetUserEffectivePermissionsResponse, error) {
+	perms, err := service.GetPermissionService().GetUserEffectivePermissions(req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]v1.GetPermissionResponse, 0, len(perms))
+	for _, p := range perms {
+		list = append(list, v1.GetPermissionResponse{
+			ID:       p.ID,
+			Name:     p.Name,
+			Code:     p.Code,
+			Resource: p.Resource,
+			Action:   p.Action,
+			Status:   p.Status,
+		})
+	}
+
+	return &v1.GetUserEffectivePermissionsResponse{Permissions: list}, nil
+}
+
 func (c *permissionControllerImpl) CheckPermissionWithContext(ctx context.Context, req *v1.CheckPermissionWithContextRequest) (*v1.CheckPermissionWithContextResponse, error) {
 	// 构建权限上下文
 	permCtx := model.NewPermissionContext(ctx, req.UserID, req.Resource, req.Action).

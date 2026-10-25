@@ -16,12 +16,32 @@
 ### 授权绑定
 - 角色-权限绑定（assign/revoke）
 - 用户-角色绑定（assign/revoke）
+- **用户直接权限**：绕过角色直接把权限授予某个用户，支持设置过期时间与授权原因
 - 查询用户的所有角色和有效权限
+
+### 用户直接权限
+
+角色是「批量授权」的抽象，但总有几类场景套不进角色模型：
+
+- **应急授权**：线上故障时临时给运维开一个写权限，事后自动失效
+- **外部协作**：外包/顾问只做一件事，不值得为它建一个角色
+- **例外处理**：某人比其角色多一项权限，但不应影响同角色的其他人
+
+`user_permissions` 表承载这类定向授权。最终有效权限的合成规则：
+
+```
+有效权限 = 角色权限（含组织继承） ∪ 未过期的直接权限
+```
+
+- `expire_at` 为 `NULL` 表示永久有效；非空且已过期时在**校验阶段**被过滤，
+  正确性不依赖任何后台清理任务
+- 重复授予同一权限是幂等操作，会刷新过期时间与授权原因
+- 授权记录保留 `reason` 字段，便于事后审计「这次提权是谁批的、为什么」
 
 ### 权限校验
 - `CheckPermission(userID, resource, action)` — 一行代码完成权限校验
 - `CheckPermissionWithContext(ctx)` — 支持多种权限模型的扩展校验
-- 聚合直接分配的角色 + 组织继承的角色（需集成 LandcOrg）
+- 聚合直接分配的角色 + 组织继承的角色 + 未过期的直接权限
 - 通配符资源匹配
 
 ### 多权限模型支持
@@ -171,17 +191,36 @@ fmt.Println(resp.Allowed) // true or false
 | RevokeRoles | POST /api/permission/revoke-roles | 撤销用户角色 |
 | GetUserRoles | POST /api/permission/get-user-roles | 获取用户的所有角色 |
 | GetUserPermissions | POST /api/permission/get-user-permissions | 获取用户的有效权限 |
+| GrantUserPermissions | POST /api/permission/grant-direct | 授予用户直接权限（可设过期时间） |
+| RevokeUserPermissions | POST /api/permission/revoke-direct | 撤销用户直接权限 |
+| GetUserDirectPermissions | POST /api/permission/get-direct | 查询用户直接授权记录 |
+| GetUserEffectivePermissions | POST /api/permission/get-effective | 查询用户最终有效权限（角色 ∪ 直接） |
 | CheckPermission | POST /api/permission/check | 权限校验 |
+
+授予直接权限示例：
+
+```bash
+curl -X POST http://127.0.0.1:8084/api/permission/grant-direct \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "user_id": 1001,
+    "grants": [
+      {"permission_id": 7, "expire_at": "2026-02-06T00:00:00Z", "reason": "线上故障应急"}
+    ]
+  }'
+```
 
 ## 权限模型
 
 ```
 用户 ──(user_roles)──> 角色 ──(role_permissions)──> 权限(resource + action)
-                         ↑
-         组织继承（可选） │
-                         │
-用户 ──(org_members)──> 部门 ──(department_roles)──> 角色
-                    └──> 岗位 ──(position_roles)──> 角色
+  │                      ↑
+  │      组织继承（可选） │
+  │                      │
+  ├──(org_members)──> 部门 ──(department_roles)──> 角色
+  │                └──> 岗位 ──(position_roles)──> 角色
+  │
+  └──(user_permissions)──> 权限(resource + action)   ← 直接授权，绕过角色
 ```
 
 ### 权限匹配规则

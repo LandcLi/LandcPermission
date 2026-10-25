@@ -1,6 +1,10 @@
 package v1
 
-import "github.com/LandcLi/landc-go/frame/pkg/meta"
+import (
+	"time"
+
+	"github.com/LandcLi/landc-go/frame/pkg/meta"
+)
 
 // --- Permission API ---
 
@@ -211,4 +215,71 @@ type PermissionContextAttrs struct {
 type CheckPermissionWithContextResponse struct {
 	Allowed bool   `json:"allowed"`
 	Reason  string `json:"reason,omitempty"` // 拒绝原因
+}
+
+// --- User-Permission 直接授权（绕过角色）---
+
+// DirectPermissionGrant 单条直接授权项。
+type DirectPermissionGrant struct {
+	PermissionID uint       `json:"permission_id" binding:"required"`
+	ExpireAt     *time.Time `json:"expire_at"` // 不传或 null 表示永久有效
+	Reason       string     `json:"reason"`    // 授权原因，供审计追溯
+}
+
+// GrantUserPermissionsRequest 授予用户直接权限。
+type GrantUserPermissionsRequest struct {
+	meta.Meta `path:"/api/permission/grant-direct" method:"POST"`
+	UserID    uint                    `json:"user_id" binding:"required"`
+	Grants    []DirectPermissionGrant `json:"grants" binding:"required"`
+}
+
+// GrantUserPermissionsResponse 返回授权结果。
+type GrantUserPermissionsResponse struct {
+	Success bool `json:"success"`
+}
+
+// RevokeUserPermissionsRequest 撤销用户直接权限。
+type RevokeUserPermissionsRequest struct {
+	meta.Meta     `path:"/api/permission/revoke-direct" method:"POST"`
+	UserID        uint   `json:"user_id" binding:"required"`
+	PermissionIDs []uint `json:"permission_ids" binding:"required"`
+}
+
+// RevokeUserPermissionsResponse 返回撤销结果。
+type RevokeUserPermissionsResponse struct {
+	Success bool `json:"success"`
+}
+
+// GetUserDirectPermissionsRequest 查询用户直接授权记录。
+type GetUserDirectPermissionsRequest struct {
+	meta.Meta `path:"/api/permission/get-direct" method:"POST"`
+	UserID    uint `json:"user_id" binding:"required"`
+}
+
+// DirectPermissionInfo 直接授权记录（含过期状态与权限基本信息）。
+type DirectPermissionInfo struct {
+	ID           uint       `json:"id"`
+	PermissionID uint       `json:"permission_id"`
+	Code         string     `json:"code,omitempty"`
+	Name         string     `json:"name,omitempty"`
+	ExpireAt     *time.Time `json:"expire_at"`
+	Expired      bool       `json:"expired"`
+	Reason       string     `json:"reason"`
+	CreatedAt    time.Time  `json:"created_at"`
+}
+
+// GetUserDirectPermissionsResponse 返回用户直接授权列表。
+type GetUserDirectPermissionsResponse struct {
+	Grants []DirectPermissionInfo `json:"grants"`
+}
+
+// GetUserEffectivePermissionsRequest 查询用户最终有效权限。
+type GetUserEffectivePermissionsRequest struct {
+	meta.Meta `path:"/api/permission/get-effective" method:"POST"`
+	UserID    uint `json:"user_id" binding:"required"`
+}
+
+// GetUserEffectivePermissionsResponse 返回角色权限与直接权限的并集。
+type GetUserEffectivePermissionsResponse struct {
+	Permissions []GetPermissionResponse `json:"permissions"`
 }

@@ -12,28 +12,35 @@ import (
 )
 
 func init() {
-	cache := getCache()
-	dao.RegisterRolePermissionDAO(&rolePermissionDAOImpl{cache: cache})
-	dao.RegisterUserRoleDAO(&userRoleDAOImpl{cache: cache})
+	// 刻意不在 init 阶段读取缓存实例：DAO 在包 init() 中构造，而 Redis / DB
+	// 要等 main 之后才就绪。在 init 阶段抓取会把 nil 永久固化到字段里，
+	// 表现为「Redis 明明配了却从不命中缓存」。缓存实例一律使用时惰性获取。
+	dao.RegisterRolePermissionDAO(&rolePermissionDAOImpl{})
+	dao.RegisterUserRoleDAO(&userRoleDAOImpl{})
 }
 
-// getCache 获取缓存实例（支持弱Redis，无Redis时使用本地缓存）
-func getCache() framecache.Cache {
+// cache 惰性获取缓存实例；未配置 Redis 时返回 nil（调用方需判空）。
+func cache() framecache.Cache {
 	c := db.GetRedis()
 	if c == nil {
 		return nil
 	}
-	return c.(framecache.Cache)
+	fc, ok := c.(framecache.Cache)
+	if !ok {
+		return nil
+	}
+	return fc
 }
 
 // --- RolePermission DAO ---
 
-type rolePermissionDAOImpl struct {
-	cache framecache.Cache
-}
+type rolePermissionDAOImpl struct{}
 
 func (d *rolePermissionDAOImpl) AssignPermissions(roleID uint, permissionIDs []uint) error {
 	tx := db.GetDB().Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
 	for _, permID := range permissionIDs {
 		rp := &model.RolePermission{RoleID: roleID, PermissionID: permID}
 		if err := tx.FirstOrCreate(rp, "role_id = ? AND permission_id = ?", roleID, permID).Error; err != nil {
@@ -58,12 +65,10 @@ func (d *rolePermissionDAOImpl) RevokePermissions(roleID uint, permissionIDs []u
 }
 
 func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleID(roleID uint) ([]uint, error) {
-	// Try cache
 	cacheKey := fmt.Sprintf("role_perms:%d", roleID)
-	if d.cache != nil {
+	if c := cache(); c != nil {
 		var ids []uint
-		err := d.cache.GetObject(context.Background(), cacheKey, &ids)
-		if err == nil {
+		if err := c.GetObject(context.Background(), cacheKey, &ids); err == nil {
 			return ids, nil
 		}
 	}
@@ -76,9 +81,8 @@ func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleID(roleID uint) ([]uint, e
 		return nil, err
 	}
 
-	// Store in cache
-	if d.cache != nil {
-		_ = d.cache.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
+	if c := cache(); c != nil {
+		_ = c.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
 	}
 
 	return ids, nil
@@ -94,20 +98,22 @@ func (d *rolePermissionDAOImpl) GetPermissionIDsByRoleIDs(roleIDs []uint) ([]uin
 }
 
 func (d *rolePermissionDAOImpl) invalidateRolePermCache(roleID uint) {
-	if d.cache == nil {
+	c := cache()
+	if c == nil {
 		return
 	}
-	_ = d.cache.Delete(context.Background(), fmt.Sprintf("role_perms:%d", roleID))
+	_ = c.Delete(context.Background(), fmt.Sprintf("role_perms:%d", roleID))
 }
 
 // --- UserRole DAO ---
 
-type userRoleDAOImpl struct {
-	cache framecache.Cache
-}
+type userRoleDAOImpl struct{}
 
 func (d *userRoleDAOImpl) AssignRoles(userID uint, roleIDs []uint) error {
 	tx := db.GetDB().Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
 	for _, roleID := range roleIDs {
 		ur := &model.UserRole{UserID: userID, RoleID: roleID}
 		if err := tx.FirstOrCreate(ur, "user_id = ? AND role_id = ?", userID, roleID).Error; err != nil {
@@ -132,12 +138,10 @@ func (d *userRoleDAOImpl) RevokeRoles(userID uint, roleIDs []uint) error {
 }
 
 func (d *userRoleDAOImpl) GetRoleIDsByUserID(userID uint) ([]uint, error) {
-	// Try cache
 	cacheKey := fmt.Sprintf("user_roles:%d", userID)
-	if d.cache != nil {
+	if c := cache(); c != nil {
 		var ids []uint
-		err := d.cache.GetObject(context.Background(), cacheKey, &ids)
-		if err == nil {
+		if err := c.GetObject(context.Background(), cacheKey, &ids); err == nil {
 			return ids, nil
 		}
 	}
@@ -150,9 +154,8 @@ func (d *userRoleDAOImpl) GetRoleIDsByUserID(userID uint) ([]uint, error) {
 		return nil, err
 	}
 
-	// Store in cache
-	if d.cache != nil {
-		_ = d.cache.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
+	if c := cache(); c != nil {
+		_ = c.SetObject(context.Background(), cacheKey, ids, 30*time.Minute)
 	}
 
 	return ids, nil
@@ -165,8 +168,9 @@ func (d *userRoleDAOImpl) GetUsersByRoleID(roleID uint) ([]model.UserRole, error
 }
 
 func (d *userRoleDAOImpl) invalidateUserRoleCache(userID uint) {
-	if d.cache == nil {
+	c := cache()
+	if c == nil {
 		return
 	}
-	_ = d.cache.Delete(context.Background(), fmt.Sprintf("user_roles:%d", userID))
+	_ = c.Delete(context.Background(), fmt.Sprintf("user_roles:%d", userID))
 }
