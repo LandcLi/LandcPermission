@@ -37,80 +37,88 @@
 
 ## 技术栈
 
-- **框架**: landc-go/mvc（DI / Gateway / Web）
-- **Web框架**: Gin
-- **数据库**: MySQL (GORM)
-- **缓存**: Redis
-- **日志**: landc-go/log
-- **API规范**: landc-go/api
+- **框架**：`github.com/LandcLi/landc-go/frame`（配置 / DB / 缓存 / JWT / DI / Web / 健康检查）
+- **Web**：Gin；路由由 `meta.Meta` 标签声明，框架自动注册
+- **数据库**：SQLite（默认，纯 Go 驱动，零外部依赖）或 MySQL（生产）
+- **缓存**：Redis（可选，缺失时自动降级为进程内 LRU）
+- **日志**：`landc-go/log`
 
 ## 项目结构
 
 ```
 LandcPermission/
-├── api/                        # API接口定义
-│   ├── permission/             # 权限管理接口（含角色绑定、用户绑定、权限校验）
-│   └── role/                   # 角色管理接口
-├── dao/                        # 数据访问层接口
-├── internal/                   # 内部实现（可通过 DI Override 替换）
-│   ├── controller/             # 控制器层
-│   ├── dao_impl/              # DAO实现层
-│   └── service_impl/          # 服务实现层
-├── model/                      # 数据模型
-├── sdk/                        # HTTP SDK（远程调用）
-├── service/                    # 服务层接口
-├── sqls/                       # SQL脚本
-├── utility/                    # 工具包
-│   ├── config/                # 配置管理
-│   ├── db/                    # 数据库连接
-│   └── logger/                # 日志管理
-├── cmd/api/main.go            # 独立运行入口
-└── LandcPermission.go          # 主入口文件（支持嵌入集成）
+├── api/                        接口定义（请求/响应 + meta 路由标签）
+│   ├── permission/             权限管理（含角色绑定、用户绑定、权限校验）
+│   └── role/                   角色管理
+├── dao/                        数据访问接口
+├── internal/                   内部实现（可通过 DI Override 替换）
+│   ├── controller/
+│   ├── dao_impl/
+│   └── service_impl/
+├── model/                      数据模型（Role / Permission / RolePermission / UserRole）
+├── sdk/                        HTTP SDK（远程调用）
+├── service/                    服务接口
+├── sqls/                       MySQL 初始化脚本
+├── tests/sqlite/               SQLite 端到端冒烟
+├── utility/                    配置 / DB / 日志
+├── cmd/api/main.go             独立运行入口
+└── LandcPermission.go          库入口（InitDefault / InitWithConfig / RegisterHandlers）
 ```
 
 ## 快速开始
 
-### 1. 初始化数据库
+### 1. 准备配置并启动
+
+```bash
+cp config.example.yaml config.yaml
+go run ./cmd/api
+```
+
+默认使用 SQLite，首次启动自动在 `data/landc_permission.db` 建表
+（`database.auto_migrate: true`），无需 MySQL / Redis。
+
+```bash
+curl http://127.0.0.1:8082/health
+```
+
+创建角色：
+
+```bash
+curl -X POST http://127.0.0.1:8082/api/role/create \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"管理员","code":"admin","description":"默认管理员角色"}'
+```
+
+### 2. 切换到 MySQL（生产）
+
+```yaml
+database:
+  driver: "mysql"
+  dsn: "root:password@tcp(127.0.0.1:3306)/landc_permission?charset=utf8mb4&parseTime=True&loc=Local"
+  auto_migrate: false
+```
 
 ```bash
 mysql -u root -p < sqls/init.sql
 ```
 
-### 2. 配置文件
-
-```bash
-cp config.example.yml config.yml
-# 修改数据库、Redis等配置
-```
-
-### 3. 独立运行
+### 3. 嵌入到其他系统（库模式）
 
 ```go
-package main
-
-import (
-    "fmt"
-    "log"
-    landcpermission "github.com/LandcLi/LandcPermission"
-)
-
-func main() {
-    engine, err := landcpermission.InitDefault("config.yml")
-    if err != nil {
-        log.Fatalf("Failed to initialize: %v", err)
-    }
-    fmt.Println("LandcPermission starting on :8082")
-    engine.Run(":8082")
+// 方式一：挂到宿主已有的 gin 引擎（不自带中间件链，由宿主决定）
+if err := landcpermission.RegisterHandlers(ginEngine); err != nil {
+    return err
 }
-```
 
-### 4. 嵌入到其他系统
+// 方式二：连配置与中间件一起装配（使用独立 Server）
+server, err := landcpermission.InitDefault("config.yaml")
 
-```go
-// 本地集成模式（嵌入到 SSO 或其他系统中）
-permCfg := &config.Config{...}
+// 方式三：用显式配置 + 已有 gin 引擎
 landcpermission.InitWithConfigAndGin(permCfg, ginEngine)
 ```
+
+库模式只注册控制器，不会创建 engine、不会调用 `Run`，宿主可继续追加自有路由。
+
 
 ## 使用 SDK（远程调用模式）
 

@@ -3,18 +3,20 @@ package landcpermission
 import (
 	"fmt"
 
-	"github.com/LandcLi/LandcPermission/api"
-	"github.com/LandcLi/LandcPermission/api/permission"
-	"github.com/LandcLi/LandcPermission/api/role"
-	_ "github.com/LandcLi/LandcPermission/internal"
-	"github.com/LandcLi/LandcPermission/utility/config"
-	"github.com/LandcLi/LandcPermission/utility/logger"
+	"github.com/gin-gonic/gin"
+
 	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 	frameconfig "github.com/LandcLi/landc-go/frame/pkg/config"
 	framedb "github.com/LandcLi/landc-go/frame/pkg/db"
 	"github.com/LandcLi/landc-go/frame/pkg/middleware"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
-	"github.com/gin-gonic/gin"
+
+	"github.com/LandcLi/LandcPermission/api/permission"
+	"github.com/LandcLi/LandcPermission/api/role"
+	_ "github.com/LandcLi/LandcPermission/internal" // 触发默认实现注册（DI）
+	"github.com/LandcLi/LandcPermission/model"
+	"github.com/LandcLi/LandcPermission/utility/config"
+	"github.com/LandcLi/LandcPermission/utility/logger"
 )
 
 // InitDefault 从配置文件路径初始化，返回 web.Server。
@@ -23,20 +25,14 @@ func InitDefault(configPath string) (*web.Server, error) {
 	if err := frameconfig.InitGlobalConfigWithPathAndEnv(configPath); err != nil {
 		return nil, fmt.Errorf("框架加载配置失败: %w", err)
 	}
-	return initLPM(config.GetConfig())
+	return InitWithConfig(config.GetConfig())
 }
 
-// InitWithConfig 从配置对象初始化，返回 web.Server
+// InitWithConfig 从配置对象初始化，返回 web.Server。
 func InitWithConfig(cfg *config.Config) (*web.Server, error) {
-	return initLPM(cfg)
-}
-
-// InitWithConfigAndGin 使用指定配置和已有 Gin 引擎初始化（兼容模式）
-func InitWithConfigAndGin(cfg *config.Config, ginEngine *gin.Engine) error {
-	return initLPMOnGin(cfg, ginEngine)
-}
-
-func initLPM(cfg *config.Config) (*web.Server, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("配置不能为空")
+	}
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
 	}
@@ -45,63 +41,99 @@ func initLPM(cfg *config.Config) (*web.Server, error) {
 		Addr: fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port),
 	})
 
+	// 框架级中间件（trace / CORS / recovery / 鉴权）
+	server.Engine().Use(middleware.Trace(), middleware.CORS(), middleware.Recovery(), middleware.Auth())
+
 	if err := initInfrastructure(cfg); err != nil {
 		return nil, err
 	}
 
 	if cfg.Server.UserDefaultRoute {
-		registerRoutes(server)
+		if err := RegisterToRouter(server); err != nil {
+			return nil, err
+		}
 	}
-
 	return server, nil
 }
 
-func initLPMOnGin(cfg *config.Config, ginEngine *gin.Engine) error {
+// InitWithConfigAndGin 使用已有 Gin 引擎初始化（库模式 / 嵌入到宿主）。
+func InitWithConfigAndGin(cfg *config.Config, ginEngine *gin.Engine) error {
+	if cfg == nil {
+		return fmt.Errorf("配置不能为空")
+	}
+	if ginEngine == nil {
+		return fmt.Errorf("gin 引擎不能为空")
+	}
 	if cfg.Server.GinMode != "" {
 		gin.SetMode(cfg.Server.GinMode)
 	}
 
+	ginEngine.Use(middleware.Trace(), middleware.CORS(), middleware.Recovery())
+
 	if err := initInfrastructure(cfg); err != nil {
 		return err
 	}
-
 	if cfg.Server.UserDefaultRoute {
-		registerRoutesOnGin(ginEngine)
+		return RegisterHandlers(ginEngine)
 	}
-
 	return nil
 }
 
+// RegisterToRouter 把本系统的控制器注册到 server（独立部署使用）。
+func RegisterToRouter(server *web.Server) error {
+	if err := server.RegisterHandler(role.GetRoleController()); err != nil {
+		return fmt.Errorf("注册 role 控制器失败: %w", err)
+	}
+	if err := server.RegisterHandler(permission.GetPermissionController()); err != nil {
+		return fmt.Errorf("注册 permission 控制器失败: %w", err)
+	}
+	return nil
+}
+
+// RegisterHandlers 把本系统的控制器注册到任意 gin 路由（嵌入到宿主时使用）。
+// 不会挂载全局中间件：中间件链由宿主决定。
+func RegisterHandlers(router gin.IRouter) error {
+	if _, err := web.RegisterHandlers(router, role.GetRoleController()); err != nil {
+		return fmt.Errorf("注册 role 控制器失败: %w", err)
+	}
+	if _, err := web.RegisterHandlers(router, permission.GetPermissionController()); err != nil {
+		return fmt.Errorf("注册 permission 控制器失败: %w", err)
+	}
+	return nil
+}
+
+// initInfrastructure 初始化日志 / DB / 缓存 / 表结构。
+// 前置条件：调用方已完成框架配置加载（InitDefault 或宿主 bootstrap）。
 func initInfrastructure(cfg *config.Config) error {
 	logger.InitLogger(&cfg.Log)
 
-	framedb.InitGlobalDBWithDefault()
-	framecache.InitGlobalCacheWithDefault()
-
+	if err := framedb.InitGlobalDBWithDefault(); err != nil {
+		return fmt.Errorf("初始化数据库失败: %w", err)
+	}
+	if err := framecache.InitGlobalCacheWithDefault(); err != nil {
+		return fmt.Errorf("初始化缓存失败: %w", err)
+	}
+	if err := EnsureSchema(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func registerRoutes(server *web.Server) {
-	engine := server.Engine()
-	engine.Use(middleware.Trace(), middleware.CORS(), middleware.Recovery(), middleware.Auth())
-	api.RegisterDefaultRoutes(engine)
-
-	// 注册控制器（自动从 meta.Meta 标签解析路由）
-	server.RegisterHandler(role.RoleGateway.Get())
-	server.RegisterHandler(permission.PermissionGateway.Get())
+// Models 返回本系统负责的持久化模型（模型清单唯一来源）。
+func Models() []interface{} {
+	return []interface{}{
+		&model.Role{},
+		&model.Permission{},
+		&model.RolePermission{},
+		&model.UserRole{},
+	}
 }
 
-func registerRoutesOnGin(ginEngine *gin.Engine) {
-	ginEngine.Use(middleware.Trace(), middleware.CORS(), middleware.Recovery())
-	api.RegisterDefaultRoutes(ginEngine)
-
-	// 创建临时 server 来注册控制器
-	tempServer := web.NewServer(&web.ServerConfig{})
-	tempServer.RegisterHandler(role.RoleGateway.Get())
-	tempServer.RegisterHandler(permission.PermissionGateway.Get())
-
-	// 复制路由到 ginEngine
-	for _, route := range tempServer.Engine().Routes() {
-		ginEngine.Handle(route.Method, route.Path, route.HandlerFunc)
+// EnsureSchema 按配置决定是否自动建表（受 database.auto_migrate 控制），幂等。
+// SQLite / 开发测试环境开启即可开箱使用；MySQL 生产环境由 sqls/init.sql 接管。
+func EnsureSchema() error {
+	if err := framedb.AutoMigrateIfEnabled(Models()...); err != nil {
+		return fmt.Errorf("自动建表失败: %w", err)
 	}
+	return nil
 }
