@@ -238,6 +238,7 @@ fmt.Println(resp.Allowed) // true or false
 | GetUserDirectPermissions | POST /api/permission/get-direct | 查询用户直接授权记录 |
 | GetUserEffectivePermissions | POST /api/permission/get-effective | 查询用户最终有效权限（角色 ∪ 直接） |
 | CheckPermission | POST /api/permission/check | 权限校验 |
+| CheckPermissions | POST /api/permission/check-batch | 批量权限校验（一次判多项） |
 
 授予直接权限示例：
 
@@ -368,6 +369,18 @@ POST /api/permission/check
     "resource": "user.profile",
     "action": "write"
 }
+
+# 批量校验：前端渲染菜单/按钮时一次问清，避免几十次往返
+POST /api/permission/check-batch
+{
+    "user_id": 1,
+    "checks": [
+        {"resource": "order", "action": "export"},
+        {"resource": "user",  "action": "view"}
+    ]
+}
+# → {"results":[{"resource":"order","action":"export","allowed":true},
+#               {"resource":"user","action":"view","allowed":false}]}
 
 # 多权限模型校验（支持 ABAC/ACL）
 POST /api/permission/check-with-context

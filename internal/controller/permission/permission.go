@@ -187,6 +187,25 @@ func (c *permissionControllerImpl) CheckPermission(ctx context.Context, req *v1.
 	return &v1.CheckPermissionResponse{Allowed: allowed}, nil
 }
 
+// CheckPermissions 批量判定：前端渲染菜单/按钮时一次问清所有权限。
+func (c *permissionControllerImpl) CheckPermissions(ctx context.Context, req *v1.CheckPermissionsRequest) (*v1.CheckPermissionsResponse, error) {
+	checks := make([]model.PermissionCheck, 0, len(req.Checks))
+	for _, item := range req.Checks {
+		checks = append(checks, model.PermissionCheck{Resource: item.Resource, Action: item.Action})
+	}
+
+	results, err := service.GetPermissionService().CheckPermissions(req.UserID, checks)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]v1.CheckPermissionResult, 0, len(results))
+	for _, r := range results {
+		out = append(out, v1.CheckPermissionResult{Resource: r.Resource, Action: r.Action, Allowed: r.Allowed})
+	}
+	return &v1.CheckPermissionsResponse{Results: out}, nil
+}
+
 // --- User-Permission 直接授权 ---
 
 func (c *permissionControllerImpl) GrantUserPermissions(ctx context.Context, req *v1.GrantUserPermissionsRequest) (*v1.GrantUserPermissionsResponse, error) {

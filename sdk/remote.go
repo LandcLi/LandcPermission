@@ -104,6 +104,11 @@ func (r *RemotePermissionController) CheckPermission(ctx context.Context, req *p
 	return di.Call[permV1.CheckPermissionResponse](r.client, ctx, "CheckPermission", req)
 }
 
+// CheckPermissions 批量判定，一次问清多个权限，适合渲染菜单/按钮。
+func (r *RemotePermissionController) CheckPermissions(ctx context.Context, req *permV1.CheckPermissionsRequest) (*permV1.CheckPermissionsResponse, error) {
+	return di.Call[permV1.CheckPermissionsResponse](r.client, ctx, "CheckPermissions", req)
+}
+
 func (r *RemotePermissionController) CheckPermissionWithContext(ctx context.Context, req *permV1.CheckPermissionWithContextRequest) (*permV1.CheckPermissionWithContextResponse, error) {
 	return di.Call[permV1.CheckPermissionWithContextResponse](r.client, ctx, "CheckPermissionWithContext", req)
 }

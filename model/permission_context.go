@@ -96,3 +96,18 @@ func (pc *PermissionContext) GetEnvironmentAttr(key string) (interface{}, bool) 
 	v, ok := pc.EnvironmentAttrs[key]
 	return v, ok
 }
+
+// PermissionCheck 是一次「是否拥有某权限」的询问。
+type PermissionCheck struct {
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+}
+
+// PermissionCheckResult 是批量判定的单条结果。
+// 回带 resource/action 是为了让调用方按位置对齐时也能自校验，
+// 避免前端把结果数组错位当成别的权限。
+type PermissionCheckResult struct {
+	Resource string `json:"resource"`
+	Action   string `json:"action"`
+	Allowed  bool   `json:"allowed"`
+}

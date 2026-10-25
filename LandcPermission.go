@@ -15,6 +15,7 @@ import (
 	"github.com/LandcLi/LandcPermission/api/role"
 	"github.com/LandcLi/LandcPermission/integration/orgrole"
 	_ "github.com/LandcLi/LandcPermission/internal" // 触发默认实现注册（DI）
+	permissionsvc "github.com/LandcLi/LandcPermission/internal/service_impl/permission"
 	"github.com/LandcLi/LandcPermission/model"
 	"github.com/LandcLi/LandcPermission/service"
 	"github.com/LandcLi/LandcPermission/utility/config"
@@ -119,7 +120,17 @@ func initInfrastructure(cfg *config.Config) error {
 		return err
 	}
 	wireOrgService(cfg)
+	wirePermissionCache(cfg)
 	return nil
+}
+
+// wirePermissionCache 按配置设定「有效权限缓存」的存活时间。
+// 设为 0 即关闭缓存，排查「权限改了不生效」时先关它。
+func wirePermissionCache(cfg *config.Config) {
+	if cfg == nil {
+		return
+	}
+	permissionsvc.SetEffectiveCacheTTL(cfg.Cache.EffectiveTTL)
 }
 
 // wireOrgService 按配置接入 LandcOrg 的组织继承角色（可选能力）。

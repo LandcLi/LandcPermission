@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strconv"
 	"time"
 
 	frameconfig "github.com/LandcLi/landc-go/frame/pkg/config"
@@ -14,7 +15,18 @@ type Config struct {
 	Redis    RedisConfig
 	Log      facade.LogConfig
 	Org      OrgServiceConfig
+	Cache    CacheConfig
 }
+
+// CacheConfig 控制进程内缓存的行为。
+type CacheConfig struct {
+	// EffectiveTTL 是「用户有效权限」缓存的存活时间。
+	// 0 表示关闭缓存（排查「权限改了不生效」时先把它设为 0）。
+	EffectiveTTL time.Duration
+}
+
+// defaultEffectiveCacheTTL 与 internal/service_impl/permission 的默认值保持一致。
+const defaultEffectiveCacheTTL = 30 * time.Second
 
 // OrgServiceConfig 描述与 LandcOrg 的集成方式（可选）。
 // BaseURL 留空表示不集成：权限判定只使用直接分配的角色。
@@ -94,6 +106,12 @@ func extractConfig(fc *frameconfig.Config) *Config {
 	}
 	cfg.Org.BaseURL = fc.GetOtherString("org_service", "base_url")
 
+	// 有效权限缓存存活时间（秒）。未配置用默认 30s；显式写 0 表示关闭缓存。
+	cfg.Cache.EffectiveTTL = defaultEffectiveCacheTTL
+	if v, ok := fc.GetOtherPath("permission", "effective_cache_ttl_seconds"); ok {
+		cfg.Cache.EffectiveTTL = time.Duration(toInt(v)) * time.Second
+	}
+
 	// 从框架 LogConfig 转换为 facade.LogConfig
 	cfg.Log = facade.LogConfig{
 		Provider:    "console",
@@ -107,6 +125,26 @@ func extractConfig(fc *frameconfig.Config) *Config {
 	}
 
 	return cfg
+}
+
+// toInt 把配置里读到的数值统一成 int。
+// yaml 解码出 int，json 解码出 float64，两条路径都要能处理。
+func toInt(v interface{}) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case uint:
+		return int(n)
+	case float64:
+		return int(n)
+	case string:
+		if i, err := strconv.Atoi(n); err == nil {
+			return i
+		}
+	}
+	return 0
 }
 
 // parseLogLevel 解析日志级别字符串

@@ -40,6 +40,10 @@ type PermissionService interface {
 	// Permission check (RBAC 基础方法)
 	CheckPermission(userID uint, resource, action string) (bool, error)
 
+	// CheckPermissions 批量判定同一用户的多个权限。
+	// 一次取权限集合判多项，避免前端渲染菜单时几十次往返。
+	CheckPermissions(userID uint, checks []model.PermissionCheck) ([]model.PermissionCheckResult, error)
+
 	// Permission check with context (支持多种权限模型扩展)
 	CheckPermissionWithContext(ctx *model.PermissionContext) (bool, error)
 }
