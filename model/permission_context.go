@@ -13,9 +13,9 @@ type PermissionContext struct {
 	Action   string
 
 	// ABAC 扩展字段（基于属性的访问控制）
-	UserAttributes    map[string]interface{} // 用户属性（部门、职级、角色等）
+	UserAttributes     map[string]interface{} // 用户属性（部门、职级、角色等）
 	ResourceAttributes map[string]interface{} // 资源属性（所有者、敏感级别等）
-	EnvironmentAttrs  map[string]interface{} // 环境属性（时间、IP、设备等）
+	EnvironmentAttrs   map[string]interface{} // 环境属性（时间、IP、设备等）
 
 	// 租户隔离（SAAS 多租户支持）
 	TenantID uint

@@ -70,6 +70,6 @@ type ListRolesRequest struct {
 
 // ListRolesResponse returns paginated role list.
 type ListRolesResponse struct {
-	Total int64            `json:"total"`
+	Total int64             `json:"total"`
 	List  []GetRoleResponse `json:"list"`
 }

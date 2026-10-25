@@ -53,10 +53,10 @@ type ABACPolicy struct {
 
 // PolicyCondition 策略条件
 type PolicyCondition struct {
-	AttributeType AttributeType // 属性类型：user/resource/environment
-	AttributeKey  string        // 属性键
+	AttributeType AttributeType     // 属性类型：user/resource/environment
+	AttributeKey  string            // 属性键
 	Operator      ConditionOperator // 条件操作符
-	Value         interface{}  // 比较值
+	Value         interface{}       // 比较值
 }
 
 // AttributeType 属性类型

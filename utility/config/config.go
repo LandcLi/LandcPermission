@@ -110,7 +110,8 @@ func extractConfig(fc *frameconfig.Config) *Config {
 }
 
 // parseLogLevel 解析日志级别字符串
-func parseLogLevel(level string) facade.LogLevel {	switch level {
+func parseLogLevel(level string) facade.LogLevel {
+	switch level {
 	case "debug":
 		return facade.DebugLevel
 	case "info":
