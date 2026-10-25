@@ -12,10 +12,13 @@
 
 # 服务器配置
 server:
+  # 监听地址：框架按 addr:port 组合（addr 为空时回落到 :8080）
+  addr: "0.0.0.0"
   port: 8082
-  host: "0.0.0.0"
   read_timeout: 30
   write_timeout: 30
+  # 是否注册本系统自带的控制器路由（默认 true，通常无需显式配置）
+  use_default_routes: true
 
 # 数据库配置：默认 SQLite（纯 Go 驱动，无需 CGO / gcc / 外部服务）
 database:
@@ -48,5 +51,16 @@ log:
 # 其他业务配置
 other:
   server:
+    # gin 运行模式：debug / release / test
+    # 注意：框架的 server 段没有 gin_mode 字段，本系统从 other.server 读取
     gin_mode: "debug"
-    use_default_route: true
+
+  # 与 LandcOrg 集成（可选）
+  #
+  # 填写 base_url 后，用户从「部门 / 岗位」继承的角色会并入有效权限，
+  # 即：有效权限 = 直接角色权限 ∪ 组织继承角色权限 ∪ 未过期直接权限。
+  # LandcOrg 不可用时自动降级为只用直接角色，不会阻断权限判定（查询超时 3s）。
+  # 留空或删除该段表示不集成。
+  #
+  # org_service:
+  #   base_url: "http://127.0.0.1:8083"

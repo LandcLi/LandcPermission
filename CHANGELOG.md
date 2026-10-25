@@ -5,6 +5,41 @@
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-25
+
+打通与 LandcOrg 的协同：组织继承角色首次真正参与权限判定。
+
+### 新增
+
+- **组织继承角色提供者（`integration/orgrole`）**。`service.OrgRoleProvider` 接口此前
+  只有声明、没有任何实现，`OrgRoleProvider` 恒为空 → 组织架构里配的角色对权限判定
+  毫无影响（文档却说支持，属于静默失效）。
+  - `RemoteProvider` 用 `di.ProxyClient` 调 `/api/org-role/get-user-inherited-roles`
+  - **刻意不 import LandcOrg**：接口定义在 Permission、实现也在 Permission，
+    靠请求结构体的 `meta.Meta` 契约解耦，LandcOrg 换版本/改实现都不影响本系统编译
+  - 默认 3s 超时；组织服务不可用时**降级**为只算用户直接角色，不阻断授权判定
+- `service.OverrideOrgRoleProvider(impl)`：用 `di.Override` 强制替换已注册实现。
+  `di.Provide` 不覆盖，装配期切换数据来源必须用 Override。
+- 配置项 `other.org_service.base_url`：留空则完全不启用组织协同（保持纯 RBAC 行为）。
+
+### 修复
+
+- **配置读取误用 `GetOther` 取嵌套值**：`other.server.gin_mode`、
+  `other.org_service.base_url` 等多层配置此前恒取不到（`other` 段在框架侧多套了一层），
+  导致 `gin_mode` 从不生效、`base_url` 永远为空。改用框架新增的
+  `GetOtherString` / `GetOtherBool`，并删除本系统自建的 `otherLookup` 等实现。
+
+### 测试
+
+- `tests/sqlite/org_provider_test.go`：`fakeOrgService` 充当**契约守门人**
+  （断言 path、method、body 里的 `user_id`），覆盖「组织继承角色授予权限」
+  与「组织服务故障降级」两条路径。
+- `utility/config/config_test.go`：嵌套 `other` 读取、无 `other` 段、类型不符三例。
+
+### 依赖
+
+- 升级 `frame v0.8.6`（含 `other` 段提升、`GetOtherPath`、HTTP 状态码透传）。
+
 ## [0.2.0] - 2026-10-25
 
 ### 新增

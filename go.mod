@@ -5,7 +5,7 @@ go 1.26
 toolchain go1.26.5
 
 require (
-	github.com/LandcLi/landc-go/frame v0.8.5
+	github.com/LandcLi/landc-go/frame v0.8.6
 	github.com/LandcLi/landc-go/log v0.5.0
 	github.com/gin-gonic/gin v1.11.0
 	gorm.io/gorm v1.31.1
@@ -13,8 +13,8 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/LandcLi/landc-go/api v0.5.0 // indirect
-	github.com/LandcLi/landc-go/tools v0.7.0 // indirect
+	github.com/LandcLi/landc-go/api v0.5.1 // indirect
+	github.com/LandcLi/landc-go/tools v0.7.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect

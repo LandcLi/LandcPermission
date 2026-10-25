@@ -51,9 +51,30 @@
 - 通过 DI 机制可灵活切换和扩展权限模型
 
 ### 组织驱动授权（可选）
-- 通过 `OrgRoleProvider` 接口对接 LandcOrg
-- 自动聚合用户从部门/岗位继承的角色
-- 未注册 Provider 时仅使用直接分配的角色（向后兼容）
+- 通过 `OrgRoleProvider` 接口对接 LandcOrg，自动聚合用户从部门/岗位继承的角色
+- 未注册 Provider 时仅使用直接分配的角色（向后兼容，默认关闭）
+
+启用方式：在配置文件里填 `other.org_service.base_url`，服务启动时会自动注入
+`integration/orgrole` 的远程适配器：
+
+```yaml
+other:
+  org_service:
+    base_url: "http://127.0.0.1:8083"   # LandcOrg 地址
+```
+
+有效权限的完整口径：
+
+```
+有效权限 = 直接分配角色的权限 ∪ 组织继承角色的权限 ∪ 未过期直接权限
+```
+
+设计要点：
+- Permission 不依赖 LandcOrg 的代码，两者通过 HTTP 契约解耦，可独立发布
+- 路由契约由 `meta.Meta` 声明（`/api/org-role/get-user-inherited-roles`），
+  由 `tests/sqlite/org_provider_test.go` 的假服务端守住一致性
+- 查询超时 3 秒；LandcOrg 不可用时自动降级为只用直接角色与直接权限，
+  权限判定不报错、不阻塞
 
 ## 技术栈
 
@@ -142,12 +163,12 @@ landcpermission.InitWithConfigAndGin(permCfg, ginEngine)
 ### 4. Docker 部署
 
 ```bash
-docker build -t landc-permission:0.2.0 .
+docker build -t landc-permission:0.2.1 .
 
 docker run -d --name landc-permission \
   -p 8082:8082 \
   -v "$(pwd)/data:/app/data" \
-  landc-permission:0.2.0
+  landc-permission:0.2.1
 ```
 
 镜像要点：

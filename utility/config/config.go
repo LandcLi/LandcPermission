@@ -13,6 +13,13 @@ type Config struct {
 	Database DatabaseConfig
 	Redis    RedisConfig
 	Log      facade.LogConfig
+	Org      OrgServiceConfig
+}
+
+// OrgServiceConfig 描述与 LandcOrg 的集成方式（可选）。
+// BaseURL 留空表示不集成：权限判定只使用直接分配的角色。
+type OrgServiceConfig struct {
+	BaseURL string
 }
 
 // ServerConfig represents server configuration.
@@ -72,17 +79,20 @@ func extractConfig(fc *frameconfig.Config) *Config {
 		},
 	}
 
-	// 从自定义配置提取 GinMode
-	if v, ok := fc.GetOther("gin_mode"); ok {
-		if s, ok := v.(string); ok {
-			cfg.Server.GinMode = s
-		}
+	// 从自定义配置提取 GinMode / CORS / 组织服务地址。
+	//
+	// 读取统一走框架的 GetOtherString / GetOtherBool：它们按嵌套路径下钻，
+	// 且框架在解析配置时会把 other: 段的子键提升一层（历史文档把业务配置
+	// 写在 other 段下，而 Other 的语义是未声明的顶层键）。此前本包自己写的
+	// 下钻逻辑只能处理其中一种写法，另一种会静默取空。
+	cfg.Server.GinMode = fc.GetOtherString("server", "gin_mode")
+	if b, ok := fc.GetOtherBool("server", "enable_cors"); ok {
+		cfg.Server.EnableCORS = b
+	} else if b, ok := fc.GetOtherBool("enable_cors"); ok {
+		// 兼容顶层写法
+		cfg.Server.EnableCORS = b
 	}
-	if v, ok := fc.GetOther("enable_cors"); ok {
-		if b, ok := v.(bool); ok {
-			cfg.Server.EnableCORS = b
-		}
-	}
+	cfg.Org.BaseURL = fc.GetOtherString("org_service", "base_url")
 
 	// 从框架 LogConfig 转换为 facade.LogConfig
 	cfg.Log = facade.LogConfig{
@@ -100,8 +110,7 @@ func extractConfig(fc *frameconfig.Config) *Config {
 }
 
 // parseLogLevel 解析日志级别字符串
-func parseLogLevel(level string) facade.LogLevel {
-	switch level {
+func parseLogLevel(level string) facade.LogLevel {	switch level {
 	case "debug":
 		return facade.DebugLevel
 	case "info":

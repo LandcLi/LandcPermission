@@ -14,6 +14,12 @@ func RegisterOrgRoleProvider(impl OrgRoleProvider) {
 	di.Provide[OrgRoleProvider]("org_role.provider", impl)
 }
 
+// OverrideOrgRoleProvider 强制替换已注册的实现。
+// 用于装配期切换数据来源（本地实现 / 远程 LandcOrg），或重复初始化时避免残留旧实例。
+func OverrideOrgRoleProvider(impl OrgRoleProvider) {
+	di.Override[OrgRoleProvider]("org_role.provider", impl)
+}
+
 func GetOrgRoleProvider() OrgRoleProvider {
 	v, err := di.Resolve[OrgRoleProvider]("org_role.provider")
 	if err != nil {

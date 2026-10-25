@@ -13,8 +13,10 @@ import (
 
 	"github.com/LandcLi/LandcPermission/api/permission"
 	"github.com/LandcLi/LandcPermission/api/role"
+	"github.com/LandcLi/LandcPermission/integration/orgrole"
 	_ "github.com/LandcLi/LandcPermission/internal" // 触发默认实现注册（DI）
 	"github.com/LandcLi/LandcPermission/model"
+	"github.com/LandcLi/LandcPermission/service"
 	"github.com/LandcLi/LandcPermission/utility/config"
 	"github.com/LandcLi/LandcPermission/utility/logger"
 )
@@ -116,7 +118,23 @@ func initInfrastructure(cfg *config.Config) error {
 	if err := EnsureSchema(); err != nil {
 		return err
 	}
+	wireOrgService(cfg)
 	return nil
+}
+
+// wireOrgService 按配置接入 LandcOrg 的组织继承角色（可选能力）。
+//
+// 未配置 other.org_service.base_url 时保持不集成：权限判定只用直接分配的
+// 角色与直接权限，行为与未引入本能力前一致。配置后，有效权限会并入用户从
+// 部门 / 岗位继承的角色；LandcOrg 不可用时自动降级为只用直接角色
+// （见 internal/service_impl/permission 的 getAllUserRoleIDs）。
+func wireOrgService(cfg *config.Config) {
+	if cfg == nil || cfg.Org.BaseURL == "" {
+		return
+	}
+	// 用 Override 而非 Provide：重复初始化（测试、宿主热重启）时替换旧实例，
+	// 避免残留指向旧 base_url 的 provider。
+	service.OverrideOrgRoleProvider(orgrole.NewRemoteProvider(cfg.Org.BaseURL))
 }
 
 // Models 返回本系统负责的持久化模型（模型清单唯一来源）。
