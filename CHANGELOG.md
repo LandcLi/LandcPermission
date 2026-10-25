@@ -5,6 +5,24 @@
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-26
+
+### 新增
+
+- **有效权限判定缓存**。一次 `CheckPermission` 此前要 3~5 次 SQL + 1 次 3s 超时的
+  组织服务 RPC，前端渲染菜单一次要判几十项，慢且脆弱。现在按用户缓存有效权限
+  （进程内 TTL 缓存，默认 30s），读操作走缓存，写操作（角色/权限/用户授权变更）
+  主动失效；`InvalidatePermissionCache()` 供运维入口，TTL 配 0 关闭缓存以排查。
+- **批量判定 `POST /api/permission/check-batch`**。一次请求判定最多 200 项
+  `{resource, action}`，返回逐项 `allowed`，前端菜单渲染从 N 次往返收敛为 1 次。
+
+### 修复
+
+- **组织角色提供者切换后缓存不失效**。`OverrideOrgRoleProvider` 换数据源后，
+  旧的「无权限」判定仍被缓存命中，导致测试 `TestInheritedOrgRolesGrantPermission`
+  假失败。现在切换即清缓存，并通过 `RegisterCacheInvalidator` 保持实现包不依赖
+  service 包（依赖倒置）。
+
 ## [0.2.1] - 2026-10-25
 
 打通与 LandcOrg 的协同：组织继承角色首次真正参与权限判定。
