@@ -27,6 +27,10 @@ import (
 // 之后按「组织服务不可用」降级为只用直接角色，不会拖死权限判定。
 const DefaultTimeout = 3 * time.Second
 
+// ServiceKeyHeader 是发给 LandcOrg 的服务间凭证头。
+// 必须与 LandcOrg 中间件读取的头名一致。
+const ServiceKeyHeader = "X-Service-Key"
+
 // getUserInheritedRolesRequest 对应 LandcOrg 的
 // api/org_role/v1.GetUserInheritedRolesRequest，路径与之一致。
 type getUserInheritedRolesRequest struct {

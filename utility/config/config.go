@@ -32,6 +32,12 @@ const defaultEffectiveCacheTTL = 30 * time.Second
 // BaseURL 留空表示不集成：权限判定只使用直接分配的角色。
 type OrgServiceConfig struct {
 	BaseURL string
+	// ServiceKey 服务间调用凭证，随请求以 X-Service-Key 头发给 LandcOrg。
+	//
+	// LandcOrg 已启用鉴权，服务间调用没有用户 token，必须靠这个共享密钥放行。
+	// 必须与 LandcOrg 的 other.service_auth.key 完全一致；留空则不带该头，
+	// LandcOrg 会返回 401，集成能力降级为「只用直接角色」。
+	ServiceKey string
 }
 
 // ServerConfig represents server configuration.
@@ -105,6 +111,7 @@ func extractConfig(fc *frameconfig.Config) *Config {
 		cfg.Server.EnableCORS = b
 	}
 	cfg.Org.BaseURL = fc.GetOtherString("org_service", "base_url")
+	cfg.Org.ServiceKey = fc.GetOtherString("org_service", "service_key")
 
 	// 有效权限缓存存活时间（秒）。未配置用默认 30s；显式写 0 表示关闭缓存。
 	cfg.Cache.EffectiveTTL = defaultEffectiveCacheTTL

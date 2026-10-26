@@ -62,8 +62,13 @@ other:
   # LandcOrg 不可用时自动降级为只用直接角色，不会阻断权限判定（查询超时 3s）。
   # 留空或删除该段表示不集成。
   #
+  # LandcOrg 已启用鉴权，服务间调用没有用户 token，必须配 service_key 放行，
+  # 否则查询会 401、继承角色永远为空（表现为「配了部门角色但不生效」）。
+  # service_key 必须与 LandcOrg 的 other.service_auth.key 完全一致。
+  #
   # org_service:
   #   base_url: "http://127.0.0.1:8083"
+  #   service_key: "replace-with-shared-service-key"
 
   # 有效权限缓存（进程内）
   #

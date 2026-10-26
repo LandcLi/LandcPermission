@@ -8,6 +8,7 @@ import (
 	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 	frameconfig "github.com/LandcLi/landc-go/frame/pkg/config"
 	framedb "github.com/LandcLi/landc-go/frame/pkg/db"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 	"github.com/LandcLi/landc-go/frame/pkg/middleware"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
 
@@ -143,9 +144,18 @@ func wireOrgService(cfg *config.Config) {
 	if cfg == nil || cfg.Org.BaseURL == "" {
 		return
 	}
+
+	// LandcOrg 已启用鉴权，服务间调用没有用户 token，带上共享密钥放行。
+	var opts []di.RemoteOption
+	if cfg.Org.ServiceKey != "" {
+		opts = append(opts, di.WithHeaders(map[string]string{
+			orgrole.ServiceKeyHeader: cfg.Org.ServiceKey,
+		}))
+	}
+
 	// 用 Override 而非 Provide：重复初始化（测试、宿主热重启）时替换旧实例，
 	// 避免残留指向旧 base_url 的 provider。
-	service.OverrideOrgRoleProvider(orgrole.NewRemoteProvider(cfg.Org.BaseURL))
+	service.OverrideOrgRoleProvider(orgrole.NewRemoteProvider(cfg.Org.BaseURL, opts...))
 }
 
 // Models 返回本系统负责的持久化模型（模型清单唯一来源）。
