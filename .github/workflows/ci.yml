@@ -113,3 +113,20 @@ jobs:
       # 只验证镜像可构建，不推送。发布镜像由 release 流程负责。
       - name: Build image
         run: docker build -t landc-permission:ci .
+
+  security:
+    name: Security Scan (govulncheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+          govulncheck ./...
